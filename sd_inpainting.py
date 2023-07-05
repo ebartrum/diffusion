@@ -19,7 +19,7 @@ mask_image = download_image(mask_url).resize((512, 512))
 device = "cuda"
 model_id = "runwayml/stable-diffusion-inpainting"
 pipe = StableDiffusionInpaintPipeline.from_pretrained(model_id).to(device)
-prompt = "A small robot, high resolution, sitting on a park bench"
+prompt = "A bunny, high resolution, black eyes, sitting on a park bench"
 image = pipe(prompt=prompt, image=init_image, mask_image=mask_image).images[0]
 
 # Log output

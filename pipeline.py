@@ -2,12 +2,12 @@ import torch
 from diffusers import DDPMScheduler, UNet2DModel
 from tqdm import tqdm
 
-scheduler = DDPMScheduler.from_pretrained("CCMat/diff-bored-apes-128")
-model = UNet2DModel.from_pretrained("CCMat/diff-bored-apes-128")
+scheduler = DDPMScheduler.from_pretrained("google/ddpm-cat-256")
+model = UNet2DModel.from_pretrained("google/ddpm-cat-256").to("cuda")
 scheduler.set_timesteps(1000)
 
 sample_size = model.config.sample_size
-noise = torch.randn((1, 3, sample_size, sample_size))
+noise = torch.randn((1, 3, sample_size, sample_size)).cuda()
 
 input = noise
 

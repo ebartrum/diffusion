@@ -1,5 +1,3 @@
-from base64 import b64encode
-
 import numpy
 import torch
 from diffusers import AutoencoderKL, LMSDiscreteScheduler, UNet2DConditionModel
@@ -11,7 +9,6 @@ from torch import autocast
 from torchvision import transforms as tfms
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer, logging
-import os
 
 torch.manual_seed(1)
 

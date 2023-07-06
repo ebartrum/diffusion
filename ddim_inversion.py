@@ -151,19 +151,38 @@ def invert(start_latents, prompt, guidance_scale=3.5, num_inference_steps=80,
 
 if False:
     inverted_latents = invert(l, input_image_prompt,num_inference_steps=50)
+
+if False:
     inverted_img = pipe(input_image_prompt,
         latents=inverted_latents[-1][None], num_inference_steps=50, guidance_scale=3.5).images[0]
     plt.imshow(inverted_img); plt.show()
 
 # We want to be able to specify start step
-start_step=20
-inverted_img = sample(input_image_prompt, start_latents=inverted_latents[-(start_step+1)][None], 
-       start_step=start_step, num_inference_steps=50)[0]
-plt.imshow(inverted_img); plt.show()
+if False:
+    start_step=20
+    inverted_img = sample(input_image_prompt, start_latents=inverted_latents[-(start_step+1)][None], 
+           start_step=start_step, num_inference_steps=50)[0]
+    plt.imshow(inverted_img); plt.show()
 
 # Sampling with a new prompt
-start_step=10
-new_prompt = input_image_prompt.replace('puppy', 'cat')
-new_prompt_img = sample(new_prompt, start_latents=inverted_latents[-(start_step+1)][None], 
-       start_step=start_step, num_inference_steps=50)[0]
-plt.imshow(new_prompt_img); plt.show()
+if False:
+    start_step=10
+    new_prompt = input_image_prompt.replace('puppy', 'cat')
+    new_prompt_img = sample(new_prompt, start_latents=inverted_latents[-(start_step+1)][None], 
+           start_step=start_step, num_inference_steps=50)[0]
+    plt.imshow(new_prompt_img); plt.show()
+
+def edit(input_image, input_image_prompt, edit_prompt, num_steps=100, start_step=30, guidance_scale=3.5):
+    with torch.no_grad(): latent = pipe.vae.encode(tfms.functional.to_tensor(input_image).unsqueeze(0).to(device)*2-1)
+    l = 0.18215 * latent.latent_dist.sample()
+    inverted_latents = invert(l, input_image_prompt,num_inference_steps=num_steps)
+    final_im = sample(edit_prompt, start_latents=inverted_latents[-(start_step+1)][None], 
+                      start_step=start_step, num_inference_steps=num_steps, guidance_scale=guidance_scale)[0]
+    return final_im
+
+face = load_image('https://images.pexels.com/photos/1493111/pexels-photo-1493111.jpeg', size=(512, 512))
+plt.imshow(face); plt.show()
+edited_face = edit(face, 'A photograph of a face',
+   'A photograph of a face with sunglasses', num_steps=250,
+   start_step=30, guidance_scale=3.5)
+plt.imshow(edited_face); plt.show()

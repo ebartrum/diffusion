@@ -13,7 +13,9 @@ gen = set_seed(0)  # for reproducibility
 with torch.no_grad():
     with trace(pipe) as tc:
         out = pipe(prompt, num_inference_steps=30, generator=gen)
+        plt.imshow(out.images[0])
+        plt.show()
         heat_map = tc.compute_global_heat_map()
-        heat_map = heat_map.compute_word_heat_map('dog')
-        heat_map.plot_overlay(out.images[0])
+        heat_map = heat_map.compute_word_heat_map('dog').heatmap
+        plt.imshow(heat_map.cpu())
         plt.show()

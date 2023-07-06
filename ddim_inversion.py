@@ -11,9 +11,15 @@ from diffusers import StableDiffusionPipeline, DDIMScheduler
 import matplotlib.pyplot as plt
 
 # Useful function for later
-def load_image(url, size=None):
+def load_imageurl(url, size=None):
     response = requests.get(url,timeout=0.2)
     img = Image.open(BytesIO(response.content)).convert('RGB')
+    if size is not None:
+        img = img.resize(size)
+    return img
+
+def load_image(filename, size=None):
+    img = Image.open(filename).convert('RGB')
     if size is not None:
         img = img.resize(size)
     return img
@@ -29,7 +35,7 @@ if False:
     im = pipe(prompt, negative_prompt=negative_prompt).images[0]
     plt.imshow(im); plt.show()
 
-input_image = load_image('https://images.pexels.com/photos/8306128/pexels-photo-8306128.jpeg', size=(512, 512))
+input_image = load_imageurl('https://images.pexels.com/photos/8306128/pexels-photo-8306128.jpeg', size=(512, 512))
 input_image_prompt = "Photograph of a puppy on the grass"
 
 # encode with VAE
@@ -180,9 +186,12 @@ def edit(input_image, input_image_prompt, edit_prompt, num_steps=100, start_step
                       start_step=start_step, num_inference_steps=num_steps, guidance_scale=guidance_scale)[0]
     return final_im
 
-face = load_image('https://images.pexels.com/photos/1493111/pexels-photo-1493111.jpeg', size=(512, 512))
-plt.imshow(face); plt.show()
-edited_face = edit(face, 'A photograph of a face',
-   'A photograph of a face with sunglasses', num_steps=250,
+input_img = load_image('data/face.png', size=(512, 512))
+input_prompt = 'A photograph of a face'
+edit_prompt = 'A photograph of a face with sunglasses'
+
+plt.imshow(input_img); plt.show()
+edited_img = edit(input_img, input_prompt,
+   edit_prompt, num_steps=250,
    start_step=30, guidance_scale=3.5)
-plt.imshow(edited_face); plt.show()
+plt.imshow(edited_img); plt.show()

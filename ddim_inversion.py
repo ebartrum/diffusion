@@ -30,7 +30,6 @@ if False:
     plt.imshow(im); plt.show()
 
 input_image = load_image('https://images.pexels.com/photos/8306128/pexels-photo-8306128.jpeg', size=(512, 512))
-plt.imshow(input_image); plt.show()
 input_image_prompt = "Photograph of a puppy on the grass"
 
 # encode with VAE
@@ -150,16 +149,16 @@ def invert(start_latents, prompt, guidance_scale=3.5, num_inference_steps=80,
             
     return torch.cat(intermediate_latents)
 
-inverted_latents = invert(l, input_image_prompt,num_inference_steps=50)
-inverted_img = pipe(input_image_prompt,
-    latents=inverted_latents[-1][None], num_inference_steps=50, guidance_scale=3.5).images[0]
-plt.imshow(inverted_img); plt.show()
+if False:
+    inverted_latents = invert(l, input_image_prompt,num_inference_steps=50)
+    inverted_img = pipe(input_image_prompt,
+        latents=inverted_latents[-1][None], num_inference_steps=50, guidance_scale=3.5).images[0]
+    plt.imshow(inverted_img); plt.show()
 
-# The reason we want to be able to specify start step
+# We want to be able to specify start step
 start_step=20
 inverted_img = sample(input_image_prompt, start_latents=inverted_latents[-(start_step+1)][None], 
        start_step=start_step, num_inference_steps=50)[0]
-
 plt.imshow(inverted_img); plt.show()
 
 # Sampling with a new prompt

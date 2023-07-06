@@ -18,4 +18,9 @@ num_samples = 4
 input_grid = image_grid(dataset["image"][:num_samples], rows=1, cols=num_samples)
 
 plt.imshow(input_grid)
-plt.show()
+#plt.show()
+
+name_of_your_concept = "ccorgi"  # CHANGE THIS ACCORDING TO YOUR SUBJECT
+type_of_thing = "dog"  # CHANGE THIS ACCORDING TO YOUR SUBJECT
+instance_prompt = f"a photo of {name_of_your_concept} {type_of_thing}"
+print(f"Instance prompt: {instance_prompt}")

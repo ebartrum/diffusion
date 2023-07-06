@@ -200,6 +200,6 @@ with trace(pipe) as tc:
     plt.imshow(heat_map.cpu())
     plt.show()
 
-input_img.save("out/inversion/input.png")
-edited_img.save("out/inversion/output.png")
-torchvision.utils.save_image(heat_map, "out/inversion/heatmap.png")
+input_img.save("out/inversion_heatmap/input.png")
+edited_img.save("out/inversion_heatmap/output.png")
+torchvision.utils.save_image(heat_map, "out/inversion_heatmap/heatmap.png")

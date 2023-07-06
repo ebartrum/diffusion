@@ -187,14 +187,13 @@ def edit(input_image, input_image_prompt, edit_prompt, num_steps=100, start_step
     return final_im
 
 input_img = load_image('data/room_above.png', size=(512, 512))
-input_img.show()
-input_prompt = 'A photograph of a meeting room with a TV switched off and a table'
-edit_prompt = 'A photograph of a meeting room with a TV switched off and a table'
+input_prompt = 'A photograph of a meeting room with a screen and a table'
+edit_prompt = 'A photograph of a meeting room with a notice and a table'
 
 edited_img = edit(input_img, input_prompt,
    edit_prompt, num_steps=250,
-   start_step=30, guidance_scale=3.5)
+   start_step=100, guidance_scale=3.5)
 edited_img.show()
 
-input_img.save("out/inversion_input.png")
-edited_img.save("out/inversion_output.png")
+input_img.save("out/inversion/input.png")
+edited_img.save("out/inversion/output.png")

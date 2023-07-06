@@ -161,3 +161,10 @@ inverted_img = sample(input_image_prompt, start_latents=inverted_latents[-(start
        start_step=start_step, num_inference_steps=50)[0]
 
 plt.imshow(inverted_img); plt.show()
+
+# Sampling with a new prompt
+start_step=10
+new_prompt = input_image_prompt.replace('puppy', 'cat')
+new_prompt_img = sample(new_prompt, start_latents=inverted_latents[-(start_step+1)][None], 
+       start_step=start_step, num_inference_steps=50)[0]
+plt.imshow(new_prompt_img); plt.show()

@@ -226,7 +226,6 @@ OmegaConf.save(config=cfg, f=os.path.join(run_dir, "cfg.yaml"))
 heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), input_image.size[0]).squeeze(0)
 input_img.save(os.path.join(run_dir, "input.png"))
 edited_img.save(os.path.join(run_dir, "edit.png"))
-get_concat_h(input_img, edited_img).save(os.path.join(run_dir, "before_after.png"))
 
 #Normalise
 heat_map -= heat_map.min()
@@ -240,3 +239,8 @@ save_image(masked_img, os.path.join(run_dir, "masked.png"))
 threshold_heatmap = (heat_map>cfg.heatmap_threshold).float()
 save_image(heat_map, os.path.join(run_dir, "heatmap.png"))
 save_image(threshold_heatmap, os.path.join(run_dir, "binary_heatmap.png"))
+
+combined = get_concat_h(input_img, edited_img)
+masked_pil_img = Image.fromarray((masked_img.permute(1,2,0).cpu().numpy()*255).astype(np.uint8))
+combined = get_concat_h(combined, masked_pil_img)
+combined.save(os.path.join(run_dir, "combined.png"))

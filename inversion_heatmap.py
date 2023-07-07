@@ -190,13 +190,19 @@ def edit(input_image, input_image_prompt, edit_prompt, num_steps=100, start_step
                       start_step=start_step, num_inference_steps=num_steps, guidance_scale=guidance_scale)[0]
     return final_im
 
+def get_concat_h(im1, im2):
+    dst = Image.new('RGB', (im1.width + im2.width, im1.height))
+    dst.paste(im1, (0, 0))
+    dst.paste(im2, (im1.width, 0))
+    return dst
+
 cfg = OmegaConf.create()
 
-cfg.input_prompt = 'A photograph of a table in an office'
-cfg.edit_prompt = 'A photograph of a table in an office'
-cfg.heatmap_word = 'table'
-cfg.num_steps = 200
-cfg.start_step = 50
+cfg.input_prompt = 'A photograph of desk, chairs, whiteboard in an office'
+cfg.edit_prompt = 'A photograph of pool, chairs, whiteboard in an office'
+cfg.heatmap_word = 'pool'
+cfg.num_steps = 50
+cfg.start_step = 20
 cfg.guidance_scale = 10
 cfg.img_file = 'data/room_above.png'
 cfg.img_size = 512
@@ -220,6 +226,7 @@ OmegaConf.save(config=cfg, f=os.path.join(run_dir, "cfg.yaml"))
 heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), input_image.size[0]).squeeze(0)
 input_img.save(os.path.join(run_dir, "input.png"))
 edited_img.save(os.path.join(run_dir, "edit.png"))
+get_concat_h(input_img, edited_img).save(os.path.join(run_dir, "before_after.png"))
 
 #Normalise
 heat_map -= heat_map.min()

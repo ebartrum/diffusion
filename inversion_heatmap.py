@@ -211,8 +211,9 @@ with trace(pipe) as tc:
     heat_map = heat_map.compute_word_heat_map(cfg.heatmap_word).heatmap
 
 today = datetime.now()
-current_time = f"{today.year}-{today.month}-{today.day}_{today.hour}:{today.minute}:{today.second}"
-run_dir = os.path.join("runs",current_time)
+current_date = f"{today.year}-{today.month}-{today.day}"
+current_time = f"{today.hour}:{today.minute}:{today.second}"
+run_dir = os.path.join("runs", current_date, current_time)
 os.makedirs(run_dir, exist_ok=True)
 
 OmegaConf.save(config=cfg, f=os.path.join(run_dir, "cfg.yaml"))

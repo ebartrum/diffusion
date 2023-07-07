@@ -192,25 +192,23 @@ def edit(input_image, input_image_prompt, edit_prompt, num_steps=100, start_step
 
 cfg = OmegaConf.create()
 
-cfg.input_prompt = 'A photograph of a meeting room with a screen and cables on the table'
-cfg.edit_prompt = 'A photograph of a meeting room with a screen and nothing on the table'
-cfg.heatmap_word = 'nothing'
-cfg.num_steps = 30
-cfg.start_step = 20
-cfg.guidance_scale = 3.5
+cfg.input_prompt = 'A photograph of a table in an office'
+cfg.edit_prompt = 'A photograph of a table in an office'
+cfg.heatmap_word = 'table'
+cfg.num_steps = 200
+cfg.start_step = 50
+cfg.guidance_scale = 10
 cfg.img_file = 'data/room_above.png'
 cfg.img_size = 512
+cfg.heatmap_threshold = 0.5
 
 input_img = load_image(cfg.img_file, size=(cfg.img_size,cfg.img_size))
 with trace(pipe) as tc:
     edited_img = edit(input_img, cfg.input_prompt,
        cfg.edit_prompt, num_steps=cfg.num_steps,
        start_step=cfg.start_step, guidance_scale=cfg.guidance_scale)
-    edited_img.show()
     heat_map = tc.compute_global_heat_map()
     heat_map = heat_map.compute_word_heat_map(cfg.heatmap_word).heatmap
-    plt.imshow(heat_map.cpu())
-    plt.show()
 
 today = datetime.now()
 current_time = f"{today.year}-{today.month}-{today.day}_{today.hour}:{today.minute}:{today.second}"
@@ -225,4 +223,7 @@ edited_img.save(os.path.join(run_dir, "edit.png"))
 #Normalise
 heat_map -= heat_map.min()
 heat_map /= heat_map.max()
+
+threshold_heatmap = (heat_map>cfg.heatmap_threshold).float()
 save_image(heat_map, os.path.join(run_dir, "heatmap.png"))
+save_image(threshold_heatmap, os.path.join(run_dir, "binary_heatmap.png"))

@@ -11,6 +11,7 @@ from torchvision import transforms as tfms
 from torchvision.utils import save_image
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 from daam import trace
+from datetime import datetime
 
 # Useful function for later
 def load_imageurl(url, size=None):
@@ -195,20 +196,24 @@ heatmap_word = 'nothing'
 
 with trace(pipe) as tc:
     edited_img = edit(input_img, input_prompt,
-       edit_prompt, num_steps=50,
-       start_step=30, guidance_scale=3.5)
+       edit_prompt, num_steps=30,
+       start_step=20, guidance_scale=3.5)
     edited_img.show()
     heat_map = tc.compute_global_heat_map()
     heat_map = heat_map.compute_word_heat_map(heatmap_word).heatmap
     plt.imshow(heat_map.cpu())
     plt.show()
 
+today = datetime.now()
+current_time = f"{today.year}-{today.month}-{today.day}_{today.hour}:{today.minute}:{today.second}"
+run_dir = os.path.join("runs",current_time)
+os.makedirs(run_dir, exist_ok=True)
+
 heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), input_image.size[0]).squeeze(0)
-os.makedirs("out/inversion_heatmap", exist_ok=True)
-input_img.save("out/inversion_heatmap/input.png")
-edited_img.save("out/inversion_heatmap/output.png")
+input_img.save(os.path.join(run_dir, "input.png"))
+edited_img.save(os.path.join(run_dir, "edit.png"))
 
 #Normalise
 heat_map -= heat_map.min()
 heat_map /= heat_map.max()
-save_image(heat_map, "out/inversion_heatmap/heatmap.png")
+save_image(heat_map, os.path.join(run_dir, "heatmap.png"))

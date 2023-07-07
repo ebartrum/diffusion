@@ -3,7 +3,7 @@ import torch
 import requests
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL import Image
+from PIL import Image, ImageChops
 from io import BytesIO
 from tqdm.auto import tqdm
 from matplotlib import pyplot as plt
@@ -198,13 +198,13 @@ def get_concat_h(im1, im2):
 
 cfg = OmegaConf.create()
 
-cfg.input_prompt = 'A photograph of desk, chairs, whiteboard in an office'
-cfg.edit_prompt = 'A photograph of pool, chairs, whiteboard in an office'
-cfg.heatmap_word = 'pool'
+cfg.input_prompt = 'A photograph of a statue in a park on a white plinth'
+cfg.edit_prompt = 'A photograph of a statue in a park on a white plinth'
+cfg.heatmap_word = 'statue'
 cfg.num_steps = 50
-cfg.start_step = 20
+cfg.start_step = 30
 cfg.guidance_scale = 10
-cfg.img_file = 'data/room_above.png'
+cfg.img_file = 'data/single_statue.jpg'
 cfg.img_size = 512
 cfg.heatmap_threshold = 0.5
 
@@ -232,6 +232,11 @@ get_concat_h(input_img, edited_img).save(os.path.join(run_dir, "before_after.png
 heat_map -= heat_map.min()
 heat_map /= heat_map.max()
 
+masked_img = tfms.PILToTensor()(input_img)*heat_map.cpu()
+masked_img = masked_img.float()
+masked_img /= masked_img.max()
+save_image(masked_img, os.path.join(run_dir, "masked.png"))
+   
 threshold_heatmap = (heat_map>cfg.heatmap_threshold).float()
 save_image(heat_map, os.path.join(run_dir, "heatmap.png"))
 save_image(threshold_heatmap, os.path.join(run_dir, "binary_heatmap.png"))

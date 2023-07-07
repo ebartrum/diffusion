@@ -12,6 +12,7 @@ from torchvision.utils import save_image
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 from daam import trace
 from datetime import datetime
+from omegaconf import OmegaConf
 
 # Useful function for later
 def load_imageurl(url, size=None):
@@ -189,18 +190,25 @@ def edit(input_image, input_image_prompt, edit_prompt, num_steps=100, start_step
                       start_step=start_step, num_inference_steps=num_steps, guidance_scale=guidance_scale)[0]
     return final_im
 
-input_img = load_image('data/room_above.png', size=(512, 512))
-input_prompt = 'A photograph of a meeting room with a screen and cables on the table'
-edit_prompt = 'A photograph of a meeting room with a screen and nothing on the table'
-heatmap_word = 'nothing'
+cfg = OmegaConf.create()
 
+cfg.input_prompt = 'A photograph of a meeting room with a screen and cables on the table'
+cfg.edit_prompt = 'A photograph of a meeting room with a screen and nothing on the table'
+cfg.heatmap_word = 'nothing'
+cfg.num_steps = 30
+cfg.start_step = 20
+cfg.guidance_scale = 3.5
+cfg.img_file = 'data/room_above.png'
+cfg.img_size = 512
+
+input_img = load_image(cfg.img_file, size=(cfg.img_size,cfg.img_size))
 with trace(pipe) as tc:
-    edited_img = edit(input_img, input_prompt,
-       edit_prompt, num_steps=30,
-       start_step=20, guidance_scale=3.5)
+    edited_img = edit(input_img, cfg.input_prompt,
+       cfg.edit_prompt, num_steps=cfg.num_steps,
+       start_step=cfg.start_step, guidance_scale=cfg.guidance_scale)
     edited_img.show()
     heat_map = tc.compute_global_heat_map()
-    heat_map = heat_map.compute_word_heat_map(heatmap_word).heatmap
+    heat_map = heat_map.compute_word_heat_map(cfg.heatmap_word).heatmap
     plt.imshow(heat_map.cpu())
     plt.show()
 
@@ -209,6 +217,7 @@ current_time = f"{today.year}-{today.month}-{today.day}_{today.hour}:{today.minu
 run_dir = os.path.join("runs",current_time)
 os.makedirs(run_dir, exist_ok=True)
 
+OmegaConf.save(config=cfg, f=os.path.join(run_dir, "cfg.yaml"))
 heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), input_image.size[0]).squeeze(0)
 input_img.save(os.path.join(run_dir, "input.png"))
 edited_img.save(os.path.join(run_dir, "edit.png"))

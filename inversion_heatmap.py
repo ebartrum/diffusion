@@ -211,5 +211,4 @@ edited_img.save("out/inversion_heatmap/output.png")
 #Normalise
 heat_map -= heat_map.min()
 heat_map /= heat_map.max()
-import ipdb;ipdb.set_trace()
 save_image(heat_map, "out/inversion_heatmap/heatmap.png")

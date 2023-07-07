@@ -1,5 +1,6 @@
 import os
 import torch
+import numpy as np
 import requests
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +14,7 @@ from diffusers import StableDiffusionPipeline, DDIMScheduler
 from daam import trace
 from datetime import datetime
 from omegaconf import OmegaConf
+import argparse
 
 # Useful function for later
 def load_imageurl(url, size=None):
@@ -196,6 +198,10 @@ def get_concat_h(im1, im2):
     dst.paste(im2, (im1.width, 0))
     return dst
 
+parser = argparse.ArgumentParser()
+parser.add_argument('filename')
+args = parser.parse_args()
+
 cfg = OmegaConf.create()
 
 cfg.input_prompt = 'A photograph of a statue in a park on a white plinth'
@@ -204,7 +210,7 @@ cfg.heatmap_word = 'statue'
 cfg.num_steps = 50
 cfg.start_step = 30
 cfg.guidance_scale = 10
-cfg.img_file = 'data/single_statue.jpg'
+cfg.img_file = args.filename
 cfg.img_size = 512
 cfg.heatmap_threshold = 0.5
 
@@ -235,7 +241,7 @@ masked_img = tfms.PILToTensor()(input_img)*heat_map.cpu()
 masked_img = masked_img.float()
 masked_img /= masked_img.max()
 save_image(masked_img, os.path.join(run_dir, "masked.png"))
-   
+
 threshold_heatmap = (heat_map>cfg.heatmap_threshold).float()
 save_image(heat_map, os.path.join(run_dir, "heatmap.png"))
 save_image(threshold_heatmap, os.path.join(run_dir, "binary_heatmap.png"))

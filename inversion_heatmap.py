@@ -189,13 +189,13 @@ def edit(input_image, input_image_prompt, edit_prompt, num_steps=100, start_step
     return final_im
 
 input_img = load_image('data/room_above.png', size=(512, 512))
-input_prompt = 'A photograph of a meeting room with a screen and cables on a table'
-edit_prompt = 'A photograph of a meeting room with a screen and rabbit on a table'
-heatmap_word = 'rabbit'
+input_prompt = 'A photograph of a meeting room with a screen and cables on the table'
+edit_prompt = 'A photograph of a meeting room with a screen and nothing on the table'
+heatmap_word = 'nothing'
 
 with trace(pipe) as tc:
     edited_img = edit(input_img, input_prompt,
-       edit_prompt, num_steps=250,
+       edit_prompt, num_steps=50,
        start_step=30, guidance_scale=3.5)
     edited_img.show()
     heat_map = tc.compute_global_heat_map()
@@ -203,6 +203,7 @@ with trace(pipe) as tc:
     plt.imshow(heat_map.cpu())
     plt.show()
 
+heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), input_image.size[0]).squeeze(0)
 os.makedirs("out/inversion_heatmap", exist_ok=True)
 input_img.save("out/inversion_heatmap/input.png")
 edited_img.save("out/inversion_heatmap/output.png")
@@ -210,4 +211,5 @@ edited_img.save("out/inversion_heatmap/output.png")
 #Normalise
 heat_map -= heat_map.min()
 heat_map /= heat_map.max()
+import ipdb;ipdb.set_trace()
 save_image(heat_map, "out/inversion_heatmap/heatmap.png")

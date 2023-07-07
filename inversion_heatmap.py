@@ -211,8 +211,8 @@ with trace(pipe) as tc:
     heat_map = heat_map.compute_word_heat_map(cfg.heatmap_word).heatmap
 
 today = datetime.now()
-current_date = f"{today.year}-{today.month}-{today.day}"
-current_time = f"{today.hour}:{today.minute}:{today.second}"
+current_date = f"{today.year:04}-{today.month:02}-{today.day:02}"
+current_time = f"{today.hour:02}:{today.minute:02}:{today.second:02}"
 run_dir = os.path.join("runs", current_date, current_time)
 os.makedirs(run_dir, exist_ok=True)
 

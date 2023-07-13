@@ -204,9 +204,9 @@ args = parser.parse_args()
 
 cfg = OmegaConf.create()
 
-cfg.input_prompt = 'A photograph of a statue in a park on a white plinth'
-cfg.edit_prompt = 'A photograph of a statue in a park on a white plinth'
-cfg.heatmap_word = 'statue'
+cfg.input_prompt = 'A photograph of a statue in a park on a white plinth, with a grey building in the background and people on a bench'
+cfg.edit_prompt = 'A photograph of a statue in a park on a white plinth, with a grey building in the background and people on a bench'
+cfg.heatmap_word = 'bench'
 cfg.num_steps = 50
 cfg.start_step = 30
 cfg.guidance_scale = 10

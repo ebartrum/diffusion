@@ -16,7 +16,7 @@ LOW_RESOURCE = False
 NUM_DDIM_STEPS = 50
 GUIDANCE_SCALE = 7.5
 MAX_NUM_WORDS = 77
-IMG_RES = 128
+IMG_RES = 256
 device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 ldm_stable = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4",
                  scheduler=scheduler).to(device)
@@ -583,3 +583,16 @@ image_inv, x_t = run_and_display(prompts, controller, run_baseline=False, latent
 print("showing from left to right: the ground truth image, the vq-autoencoder reconstruction, the null-text inverted image")
 ptp_utils.view_images([image_gt, image_enc, image_inv[0]])
 show_cross_attention(controller, 16, ["up", "down"])
+
+prompts = ["a woman with blonde hair and a blue scarf",
+           "a woman with blonde hair and a red scarf"]
+
+cross_replace_steps = {'default_': .8,}
+self_replace_steps = .5
+blend_word = ((('blue',), ("red",))) # for local edit. If it is not local yet - use only the source object: blend_word = ((('cat',), ("cat",))).
+eq_params = {"words": ("red",), "values": (2,)} # amplify attention to the word "red" by *2 
+
+controller = make_controller(prompts, True, cross_replace_steps, self_replace_steps, blend_word, eq_params)
+images, _ = run_and_display(prompts, controller, run_baseline=False, latent=x_t, uncond_embeddings=uncond_embeddings, steps=50)
+
+print("Image is highly affected by the self_replace_steps, usually 0.4 is a good default value, but you may want to try the range 0.3,0.4,0.5,0.7 ")

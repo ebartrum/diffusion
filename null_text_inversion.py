@@ -1,22 +1,31 @@
 from typing import Optional, Union, Tuple, List, Callable, Dict
 from tqdm import tqdm
-import torch
 from diffusers import StableDiffusionPipeline, DDIMScheduler
+import torch
+from torch.optim.adam import Adam
+from torchvision.utils import save_image
 import torch.nn.functional as nnf
 import numpy as np
 import abc
 from null_text_helpers import ptp_utils
 from null_text_helpers import seq_aligner
 import shutil
-from torch.optim.adam import Adam
 from PIL import Image
+import os
+from datetime import datetime
 
 scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
-LOW_RESOURCE = False 
+LOW_RESOURCE = True
 NUM_DDIM_STEPS = 50
 GUIDANCE_SCALE = 7.5
 MAX_NUM_WORDS = 77
 IMG_RES = 256
+today = datetime.now()
+current_date = f"{today.year:04}-{today.month:02}-{today.day:02}"
+current_time = f"{today.hour:02}:{today.minute:02}:{today.second:02}"
+run_dir = os.path.join("runs", current_date, current_time)
+os.makedirs(run_dir, exist_ok=True)
+
 device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 ldm_stable = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4",
                  scheduler=scheduler).to(device)
@@ -37,11 +46,11 @@ class LocalBlend:
         mask = mask.gt(self.th[1-int(use_pool)])
         mask = mask[:1] + mask
         return mask
-    
+
     def __call__(self, x_t, attention_store):
         self.counter += 1
         if self.counter > self.start_blend:
-           
+
             maps = attention_store["down_cross"][2:4] + attention_store["up_cross"][:3]
             maps = [item.reshape(self.alpha_layers.shape[0], -1, 1, 16, 16, MAX_NUM_WORDS) for item in maps]
             maps = torch.cat(maps, dim=1)
@@ -52,7 +61,7 @@ class LocalBlend:
             mask = mask.float()
             x_t = x_t[:1] + mask * (x_t - x_t[:1])
         return x_t
-       
+
     def __init__(self, prompts: List[str], words: [List[List[str]]], substruct_words=None, start_blend=0.2, th=(.3, .3)):
         alpha_layers = torch.zeros(len(prompts),  1, 1, 1, 1, MAX_NUM_WORDS)
         for i, (prompt, words_) in enumerate(zip(prompts, words)):
@@ -61,7 +70,7 @@ class LocalBlend:
             for word in words_:
                 ind = ptp_utils.get_word_inds(prompt, word, tokenizer)
                 alpha_layers[i, :, :, :, :, ind] = 1
-        
+
         if substruct_words is not None:
             substruct_layers = torch.zeros(len(prompts),  1, 1, 1, 1, MAX_NUM_WORDS)
             for i, (prompt, words_) in enumerate(zip(prompts, substruct_words)):
@@ -75,30 +84,30 @@ class LocalBlend:
             self.substruct_layers = None
         self.alpha_layers = alpha_layers.to(device)
         self.start_blend = int(start_blend * NUM_DDIM_STEPS)
-        self.counter = 0 
+        self.counter = 0
         self.th=th
 
 class EmptyControl:
     def step_callback(self, x_t):
         return x_t
-    
+
     def between_steps(self):
         return
-    
+
     def __call__(self, attn, is_cross: bool, place_in_unet: str):
         return attn
 
 class AttentionControl(abc.ABC):
     def step_callback(self, x_t):
         return x_t
-    
+
     def between_steps(self):
         return
-    
+
     @property
     def num_uncond_att_layers(self):
         return self.num_att_layers if LOW_RESOURCE else 0
-    
+
     @abc.abstractmethod
     def forward (self, attn, is_cross: bool, place_in_unet: str):
         raise NotImplementedError
@@ -116,7 +125,7 @@ class AttentionControl(abc.ABC):
             self.cur_step += 1
             self.between_steps()
         return attn
-    
+
     def reset(self):
         self.cur_step = 0
         self.cur_att_layer = 0
@@ -136,7 +145,7 @@ class SpatialReplace(EmptyControl):
     def __init__(self, stop_inject: float):
         super(SpatialReplace, self).__init__()
         self.stop_inject = int((1 - stop_inject) * NUM_DDIM_STEPS)
-        
+
 class AttentionStore(AttentionControl):
     @staticmethod
     def get_empty_store():
@@ -177,18 +186,18 @@ class AttentionControlEdit(AttentionStore, abc.ABC):
         if self.local_blend is not None:
             x_t = self.local_blend(x_t, self.attention_store)
         return x_t
-        
+
     def replace_self_attention(self, attn_base, att_replace, place_in_unet):
         if att_replace.shape[2] <= 32 ** 2:
             attn_base = attn_base.unsqueeze(0).expand(att_replace.shape[0], *attn_base.shape)
             return attn_base
         else:
             return att_replace
-    
+
     @abc.abstractmethod
     def replace_cross_attention(self, attn_base, att_replace):
         raise NotImplementedError
-    
+
     def forward(self, attn, is_cross: bool, place_in_unet: str):
         super(AttentionControlEdit, self).forward(attn, is_cross, place_in_unet)
         if is_cross or (self.num_self_replace[0] <= self.cur_step < self.num_self_replace[1]):
@@ -203,7 +212,7 @@ class AttentionControlEdit(AttentionStore, abc.ABC):
                 attn[1:] = self.replace_self_attention(attn_base, attn_repalce, place_in_unet)
             attn = attn.reshape(self.batch_size * h, *attn.shape[2:])
         return attn
-    
+
     def __init__(self, prompts, num_steps: int,
                  cross_replace_steps: Union[float, Tuple[float, float], Dict[str, Tuple[float, float]]],
                  self_replace_steps: Union[float, Tuple[float, float]],
@@ -219,12 +228,12 @@ class AttentionControlEdit(AttentionStore, abc.ABC):
 class AttentionReplace(AttentionControlEdit):
     def replace_cross_attention(self, attn_base, att_replace):
         return torch.einsum('hpw,bwn->bhpn', attn_base, self.mapper)
-      
+
     def __init__(self, prompts, num_steps: int, cross_replace_steps: float, self_replace_steps: float,
                  local_blend: Optional[LocalBlend] = None):
         super(AttentionReplace, self).__init__(prompts, num_steps, cross_replace_steps, self_replace_steps, local_blend)
         self.mapper = seq_aligner.get_replacement_mapper(prompts, tokenizer).to(device)
-        
+
 class AttentionRefine(AttentionControlEdit):
     def replace_cross_attention(self, attn_base, att_replace):
         attn_base_replace = attn_base[:, :, self.mapper].permute(2, 0, 1, 3)
@@ -259,7 +268,7 @@ def get_equalizer(text: str, word_select: Union[int, Tuple[int, ...]], values: U
     if type(word_select) is int or type(word_select) is str:
         word_select = (word_select,)
     equalizer = torch.ones(1, 77)
-    
+
     for word, val in zip(word_select, values):
         inds = ptp_utils.get_word_inds(text, word, tokenizer)
         equalizer[:, inds] = val
@@ -309,7 +318,8 @@ def show_cross_attention(attention_store: AttentionStore, res: int, from_where: 
         image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
         images.append(image)
     ptp_utils.view_images(np.stack(images, axis=0))
-    
+    import ipdb;ipdb.set_trace()
+
 
 def show_self_attention_comp(attention_store: AttentionStore, res: int, from_where: List[str],
                         max_com=10, select: int = 0):
@@ -350,7 +360,7 @@ def load_resized(image_path, left=0, right=0, top=0, bottom=0):
 
 
 class NullInversion:
-    
+
     def prev_step(self, model_output: Union[torch.FloatTensor, np.ndarray], timestep: int, sample: Union[torch.FloatTensor, np.ndarray]):
         prev_timestep = timestep - self.scheduler.config.num_train_timesteps // self.scheduler.num_inference_steps
         alpha_prod_t = self.scheduler.alphas_cumprod[timestep]
@@ -360,7 +370,7 @@ class NullInversion:
         pred_sample_direction = (1 - alpha_prod_t_prev) ** 0.5 * model_output
         prev_sample = alpha_prod_t_prev ** 0.5 * pred_original_sample + pred_sample_direction
         return prev_sample
-    
+
     def next_step(self, model_output: Union[torch.FloatTensor, np.ndarray], timestep: int, sample: Union[torch.FloatTensor, np.ndarray]):
         timestep, next_timestep = min(timestep - self.scheduler.config.num_train_timesteps // self.scheduler.num_inference_steps, 999), timestep
         alpha_prod_t = self.scheduler.alphas_cumprod[timestep] if timestep >= 0 else self.scheduler.final_alpha_cumprod
@@ -370,7 +380,7 @@ class NullInversion:
         next_sample_direction = (1 - alpha_prod_t_next) ** 0.5 * model_output
         next_sample = alpha_prod_t_next ** 0.5 * next_original_sample + next_sample_direction
         return next_sample
-    
+
     def get_noise_pred_single(self, latents, t, context):
         noise_pred = self.model.unet(latents, t, encoder_hidden_states=context)["sample"]
         return noise_pred
@@ -487,7 +497,7 @@ class NullInversion:
                 latent_cur = self.get_noise_pred(latent_cur, t, False, context)
         bar.close()
         return uncond_embeddings_list
-    
+
     def invert(self, image_path: str, prompt: str, offsets=(0,0,0,0), num_inner_steps=10, early_stop_epsilon=1e-5, verbose=False):
         self.init_prompt(prompt)
         ptp_utils.register_attention_control(self.model, None)
@@ -499,8 +509,8 @@ class NullInversion:
             print("Null-text optimization...")
         uncond_embeddings = self.null_optimization(ddim_latents, num_inner_steps, early_stop_epsilon)
         return (image_gt, image_rec), ddim_latents[-1], uncond_embeddings
-        
-    
+
+
     def __init__(self, model):
         scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False,
                                   set_alpha_to_one=False)
@@ -528,7 +538,7 @@ def text2image_ldm_stable(
     batch_size = len(prompt)
     ptp_utils.register_attention_control(model, controller)
     height = width = IMG_RES
-    
+
     text_input = model.tokenizer(
         prompt,
         padding="max_length",
@@ -555,7 +565,7 @@ def text2image_ldm_stable(
         else:
             context = torch.cat([uncond_embeddings_, text_embeddings])
         latents = ptp_utils.diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource=False)
-        
+
     if return_type == 'image':
         image = ptp_utils.latent2image(model.vae, latents)
     else:
@@ -582,6 +592,11 @@ controller = AttentionStore()
 image_inv, x_t = run_and_display(prompts, controller, run_baseline=False, latent=x_t, uncond_embeddings=uncond_embeddings, verbose=False)
 print("showing from left to right: the ground truth image, the vq-autoencoder reconstruction, the null-text inverted image")
 ptp_utils.view_images([image_gt, image_enc, image_inv[0]])
+Image.fromarray(image_gt).save(os.path.join(run_dir, "gt.png"))
+Image.fromarray(image_enc).save(os.path.join(run_dir, "enc.png"))
+Image.fromarray(image_inv[0]).save(os.path.join(run_dir, "inv.png"))
+
+import ipdb;ipdb.set_trace()
 show_cross_attention(controller, 16, ["up", "down"])
 
 prompts = ["a woman with blonde hair and a blue scarf",
@@ -590,7 +605,7 @@ prompts = ["a woman with blonde hair and a blue scarf",
 cross_replace_steps = {'default_': .8,}
 self_replace_steps = .5
 blend_word = ((('blue',), ("red",))) # for local edit. If it is not local yet - use only the source object: blend_word = ((('cat',), ("cat",))).
-eq_params = {"words": ("red",), "values": (2,)} # amplify attention to the word "red" by *2 
+eq_params = {"words": ("red",), "values": (2,)} # amplify attention to the word "red" by *2
 
 controller = make_controller(prompts, True, cross_replace_steps, self_replace_steps, blend_word, eq_params)
 images, _ = run_and_display(prompts, controller, run_baseline=False, latent=x_t, uncond_embeddings=uncond_embeddings, steps=50)

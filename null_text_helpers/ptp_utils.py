@@ -17,9 +17,8 @@ import torch
 from PIL import Image, ImageDraw, ImageFont
 import cv2
 from typing import Optional, Union, Tuple, List, Callable, Dict
-from IPython.display import display
 from tqdm.notebook import tqdm
-
+from matplotlib import pyplot as plt
 
 def text_under_image(image: np.ndarray, text: str, text_color: Tuple[int, int, int] = (0, 0, 0)):
     h, w, c = image.shape
@@ -58,7 +57,8 @@ def view_images(images, num_rows=1, offset_ratio=0.02):
                 i * num_cols + j]
 
     pil_img = Image.fromarray(image_)
-    display(pil_img)
+    plt.imshow(pil_img)
+    plt.show()
 
 
 def diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource=False):

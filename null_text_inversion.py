@@ -346,7 +346,7 @@ def load_512(image_path, left=0, right=0, top=0, bottom=0):
     elif w < h:
         offset = (h - w) // 2
         image = image[offset:offset + w]
-    image = np.array(Image.fromarray(image).resize((512, 512)))
+    image = np.array(Image.fromarray(image).resize((128, 128)))
     return image
 
 
@@ -528,7 +528,7 @@ def text2image_ldm_stable(
 ):
     batch_size = len(prompt)
     ptp_utils.register_attention_control(model, controller)
-    height = width = 512
+    height = width = 128
     
     text_input = model.tokenizer(
         prompt,
@@ -583,4 +583,4 @@ controller = AttentionStore()
 image_inv, x_t = run_and_display(prompts, controller, run_baseline=False, latent=x_t, uncond_embeddings=uncond_embeddings, verbose=False)
 print("showing from left to right: the ground truth image, the vq-autoencoder reconstruction, the null-text inverted image")
 ptp_utils.view_images([image_gt, image_enc, image_inv[0]])
-show_cross_attention(controller, 16, ["up", "down"])
+# show_cross_attention(controller, 16, ["up", "down"])

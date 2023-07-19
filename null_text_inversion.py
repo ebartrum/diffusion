@@ -42,7 +42,6 @@ class LocalBlend:
         self.counter += 1
         if self.counter > self.start_blend:
            
-            import ipdb;ipdb.set_trace()
             maps = attention_store["down_cross"][2:4] + attention_store["up_cross"][:3]
             maps = [item.reshape(self.alpha_layers.shape[0], -1, 1, 16, 16, MAX_NUM_WORDS) for item in maps]
             maps = torch.cat(maps, dim=1)
@@ -138,7 +137,6 @@ class SpatialReplace(EmptyControl):
         super(SpatialReplace, self).__init__()
         self.stop_inject = int((1 - stop_inject) * NUM_DDIM_STEPS)
         
-
 class AttentionStore(AttentionControl):
     @staticmethod
     def get_empty_store():
@@ -163,7 +161,6 @@ class AttentionStore(AttentionControl):
     def get_average_attention(self):
         average_attention = {key: [item / self.cur_step for item in self.attention_store[key]] for key in self.attention_store}
         return average_attention
-
 
     def reset(self):
         super(AttentionStore, self).reset()
@@ -272,7 +269,6 @@ def aggregate_attention(attention_store: AttentionStore, res: int, from_where: L
     out = []
     attention_maps = attention_store.get_average_attention()
     num_pixels = res ** 2
-    import ipdb;ipdb.set_trace()
     for location in from_where:
         for item in attention_maps[f"{location}_{'cross' if is_cross else 'self'}"]:
             if item.shape[1] == num_pixels:

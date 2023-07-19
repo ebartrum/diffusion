@@ -304,7 +304,8 @@ def make_controller(prompts: List[str], is_replace_controller: bool, cross_repla
     return controller
 
 
-def show_cross_attention(attention_store: AttentionStore, res: int, from_where: List[str], select: int = 0):
+def show_cross_attention(attention_store: AttentionStore, res: int, from_where: List[str],
+            select: int = 0, output_path: str = None):
     tokens = tokenizer.encode(prompts[select])
     decoder = tokenizer.decode
     attention_maps = aggregate_attention(attention_store, res, from_where, True, select)
@@ -318,8 +319,8 @@ def show_cross_attention(attention_store: AttentionStore, res: int, from_where: 
         image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
         images.append(image)
     ptp_utils.view_images(np.stack(images, axis=0))
-    import ipdb;ipdb.set_trace()
-
+    if output_path:
+        Image.fromarray(np.concatenate(images, axis=1)).save(output_path)
 
 def show_self_attention_comp(attention_store: AttentionStore, res: int, from_where: List[str],
                         max_com=10, select: int = 0):
@@ -596,8 +597,7 @@ Image.fromarray(image_gt).save(os.path.join(run_dir, "gt.png"))
 Image.fromarray(image_enc).save(os.path.join(run_dir, "enc.png"))
 Image.fromarray(image_inv[0]).save(os.path.join(run_dir, "inv.png"))
 
-import ipdb;ipdb.set_trace()
-show_cross_attention(controller, 16, ["up", "down"])
+show_cross_attention(controller, 16, ["up", "down"], output_path=os.path.join(run_dir, "attn.png"))
 
 prompts = ["a woman with blonde hair and a blue scarf",
            "a woman with blonde hair and a red scarf"]
@@ -609,5 +609,7 @@ eq_params = {"words": ("red",), "values": (2,)} # amplify attention to the word 
 
 controller = make_controller(prompts, True, cross_replace_steps, self_replace_steps, blend_word, eq_params)
 images, _ = run_and_display(prompts, controller, run_baseline=False, latent=x_t, uncond_embeddings=uncond_embeddings, steps=50)
+Image.fromarray(images[0]).save(os.path.join(run_dir, "edits0.png"))
+Image.fromarray(images[1]).save(os.path.join(run_dir, "edits1.png"))
 
 print("Image is highly affected by the self_replace_steps, usually 0.4 is a good default value, but you may want to try the range 0.3,0.4,0.5,0.7 ")

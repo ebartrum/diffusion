@@ -17,10 +17,8 @@ import torch
 from PIL import Image, ImageDraw, ImageFont
 import cv2
 from typing import Optional, Union, Tuple, List, Callable, Dict
-from IPython.display import display
 from tqdm.notebook import tqdm
 from matplotlib import pyplot as plt
-
 
 def text_under_image(image: np.ndarray, text: str, text_color: Tuple[int, int, int] = (0, 0, 0)):
     h, w, c = image.shape
@@ -59,8 +57,8 @@ def view_images(images, num_rows=1, offset_ratio=0.02):
                 i * num_cols + j]
 
     pil_img = Image.fromarray(image_)
-    display(pil_img)
-    plt.imshow(pil_img); plt.show()
+    plt.imshow(pil_img)
+    plt.show()
 
 
 def diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource=False):
@@ -162,8 +160,7 @@ def text2image_ldm_stable(
     latent, latents = init_latent(latent, model, height, width, generator, batch_size)
 
     # set timesteps
-    extra_set_kwargs = {"offset": 1}
-    model.scheduler.set_timesteps(num_inference_steps, **extra_set_kwargs)
+    model.scheduler.set_timesteps(num_inference_steps)
     for t in tqdm(model.scheduler.timesteps):
         latents = diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource)
 
@@ -180,33 +177,60 @@ def register_attention_control(model, controller):
         else:
             to_out = self.to_out
 
-        def forward(x, context=None, mask=None):
-            batch_size, sequence_length, dim = x.shape
-            h = self.heads
-            q = self.to_q(x)
-            is_cross = context is not None
-            context = context if is_cross else x
-            k = self.to_k(context)
-            v = self.to_v(context)
-            q = self.reshape_heads_to_batch_dim(q)
-            k = self.reshape_heads_to_batch_dim(k)
-            v = self.reshape_heads_to_batch_dim(v)
+        def forward(hidden_states, encoder_hidden_states=None, attention_mask=None,temb=None,):
+            is_cross = encoder_hidden_states is not None
 
-            sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
+            residual = hidden_states
 
-            if mask is not None:
-                mask = mask.reshape(batch_size, -1)
-                max_neg_value = -torch.finfo(sim.dtype).max
-                mask = mask[:, None, :].repeat(h, 1, 1)
-                sim.masked_fill_(~mask, max_neg_value)
+            if self.spatial_norm is not None:
+                hidden_states = self.spatial_norm(hidden_states, temb)
 
-            # attention, what we cannot get enough of
-            attn = sim.softmax(dim=-1)
-            attn = controller(attn, is_cross, place_in_unet)
-            out = torch.einsum("b i j, b j d -> b i d", attn, v)
-            out = self.reshape_batch_dim_to_heads(out)
-            return to_out(out)
+            input_ndim = hidden_states.ndim
 
+            if input_ndim == 4:
+                batch_size, channel, height, width = hidden_states.shape
+                hidden_states = hidden_states.view(batch_size, channel, height * width).transpose(1, 2)
+
+            batch_size, sequence_length, _ = (
+                hidden_states.shape if encoder_hidden_states is None else encoder_hidden_states.shape
+            )
+            attention_mask = self.prepare_attention_mask(attention_mask, sequence_length, batch_size)
+
+            if self.group_norm is not None:
+                hidden_states = self.group_norm(hidden_states.transpose(1, 2)).transpose(1, 2)
+
+            query = self.to_q(hidden_states)
+
+            if encoder_hidden_states is None:
+                encoder_hidden_states = hidden_states
+            elif self.norm_cross:
+                encoder_hidden_states = self.norm_encoder_hidden_states(encoder_hidden_states)
+
+            key = self.to_k(encoder_hidden_states)
+            value = self.to_v(encoder_hidden_states)
+
+            query = self.head_to_batch_dim(query)
+            key = self.head_to_batch_dim(key)
+            value = self.head_to_batch_dim(value)
+
+            attention_probs = self.get_attention_scores(query, key, attention_mask)
+            attention_probs = controller(attention_probs, is_cross, place_in_unet)
+
+            hidden_states = torch.bmm(attention_probs, value)
+            hidden_states = self.batch_to_head_dim(hidden_states)
+
+            # linear proj
+            hidden_states = to_out(hidden_states)
+
+            if input_ndim == 4:
+                hidden_states = hidden_states.transpose(-1, -2).reshape(batch_size, channel, height, width)
+
+            if self.residual_connection:
+                hidden_states = hidden_states + residual
+
+            hidden_states = hidden_states / self.rescale_output_factor
+
+            return hidden_states
         return forward
 
     class DummyController:
@@ -221,7 +245,7 @@ def register_attention_control(model, controller):
         controller = DummyController()
 
     def register_recr(net_, count, place_in_unet):
-        if net_.__class__.__name__ == 'CrossAttention':
+        if net_.__class__.__name__ == 'Attention':
             net_.forward = ca_forward(net_, place_in_unet)
             return count + 1
         elif hasattr(net_, 'children'):

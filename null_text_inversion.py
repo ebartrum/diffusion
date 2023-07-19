@@ -16,6 +16,7 @@ LOW_RESOURCE = False
 NUM_DDIM_STEPS = 50
 GUIDANCE_SCALE = 7.5
 MAX_NUM_WORDS = 77
+IMG_RES = 128
 device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 ldm_stable = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4",
                  scheduler=scheduler).to(device)
@@ -328,7 +329,7 @@ def show_self_attention_comp(attention_store: AttentionStore, res: int, from_whe
     ptp_utils.view_images(np.concatenate(images, axis=1))
 
 
-def load_512(image_path, left=0, right=0, top=0, bottom=0):
+def load_resized(image_path, left=0, right=0, top=0, bottom=0):
     if type(image_path) is str:
         image = np.array(Image.open(image_path))[:, :, :3]
     else:
@@ -346,7 +347,7 @@ def load_512(image_path, left=0, right=0, top=0, bottom=0):
     elif w < h:
         offset = (h - w) // 2
         image = image[offset:offset + w]
-    image = np.array(Image.fromarray(image).resize((128, 128)))
+    image = np.array(Image.fromarray(image).resize((IMG_RES, IMG_RES)))
     return image
 
 
@@ -492,7 +493,7 @@ class NullInversion:
     def invert(self, image_path: str, prompt: str, offsets=(0,0,0,0), num_inner_steps=10, early_stop_epsilon=1e-5, verbose=False):
         self.init_prompt(prompt)
         ptp_utils.register_attention_control(self.model, None)
-        image_gt = load_512(image_path, *offsets)
+        image_gt = load_resized(image_path, *offsets)
         if verbose:
             print("DDIM inversion...")
         image_rec, ddim_latents = self.ddim_inversion(image_gt)
@@ -528,7 +529,7 @@ def text2image_ldm_stable(
 ):
     batch_size = len(prompt)
     ptp_utils.register_attention_control(model, controller)
-    height = width = 128
+    height = width = IMG_RES
     
     text_input = model.tokenizer(
         prompt,

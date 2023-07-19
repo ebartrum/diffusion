@@ -20,10 +20,10 @@ IMG_RES = 128
 device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 ldm_stable = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4",
                  scheduler=scheduler).to(device)
-# try:
-#     ldm_stable.disable_xformers_memory_efficient_attention()
-# except AttributeError:
-#     print("Attribute disable_xformers_memory_efficient_attention() is missing")
+try:
+    ldm_stable.disable_xformers_memory_efficient_attention()
+except AttributeError:
+    print("Attribute disable_xformers_memory_efficient_attention() is missing")
 tokenizer = ldm_stable.tokenizer
 
 class LocalBlend:
@@ -42,6 +42,7 @@ class LocalBlend:
         self.counter += 1
         if self.counter > self.start_blend:
            
+            import ipdb;ipdb.set_trace()
             maps = attention_store["down_cross"][2:4] + attention_store["up_cross"][:3]
             maps = [item.reshape(self.alpha_layers.shape[0], -1, 1, 16, 16, MAX_NUM_WORDS) for item in maps]
             maps = torch.cat(maps, dim=1)
@@ -271,6 +272,7 @@ def aggregate_attention(attention_store: AttentionStore, res: int, from_where: L
     out = []
     attention_maps = attention_store.get_average_attention()
     num_pixels = res ** 2
+    import ipdb;ipdb.set_trace()
     for location in from_where:
         for item in attention_maps[f"{location}_{'cross' if is_cross else 'self'}"]:
             if item.shape[1] == num_pixels:
@@ -584,4 +586,4 @@ controller = AttentionStore()
 image_inv, x_t = run_and_display(prompts, controller, run_baseline=False, latent=x_t, uncond_embeddings=uncond_embeddings, verbose=False)
 print("showing from left to right: the ground truth image, the vq-autoencoder reconstruction, the null-text inverted image")
 ptp_utils.view_images([image_gt, image_enc, image_inv[0]])
-# show_cross_attention(controller, 16, ["up", "down"])
+show_cross_attention(controller, 16, ["up", "down"])

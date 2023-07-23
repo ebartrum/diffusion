@@ -40,7 +40,9 @@ init_image = 2*init_image - 1
 device = "cuda"
 model_id = "runwayml/stable-diffusion-inpainting"
 pipe = StableDiffusionInpaintPipeline.from_pretrained(model_id).to(device)
-prompt = "A white stone statue, high resolution, on a plinth"
+with open("data/prompts/dinosaur.txt", "r") as f:
+    prompt = f.readline()
+
 image = pipe(prompt=prompt, image=init_image, mask_image=mask_image).images[0]
 
 # Log output

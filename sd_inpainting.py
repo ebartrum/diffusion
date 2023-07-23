@@ -34,6 +34,7 @@ parser.add_argument('--input_img', '-i', type=str, required=True)           # po
 parser.add_argument('--input_mask', '-m', type=str, required=True)           # positional argument
 parser.add_argument('--prompt', '-p', type=str, required=True)           # positional argument
 parser.add_argument('--gpu', '-g', type=int, default=0)           # positional argument
+parser.add_argument('--output_dir', '-d', type=str, default="runs")           # positional argument
 args = parser.parse_args()
 
 init_image = load_image(args.input_img).resize((512, 512))
@@ -55,9 +56,9 @@ image = pipe(prompt=prompt, image=init_image, mask_image=mask_image).images[0]
 # Log output
 output_img_file = os.path.basename(
         args.input_img).split(".")[0] + "_inpainted"
-output_dir = "runs"
 
-image.save(os.path.join(output_dir, f"{output_img_file}.png"))
+os.makedirs(args.output_dir, exist_ok=True)
+image.save(os.path.join(args.output_dir, f"{output_img_file}.png"))
 image_tensor = torch.from_numpy(np.array(image))
 masked_init_img = init_image*(1-mask_image).unsqueeze(0)
 masked_init_img = 0.5*masked_init_img.permute(1,2,0).float() + 0.5
@@ -65,5 +66,5 @@ vis_init_img = 0.5*init_image.permute(1,2,0).float() + 0.5
 
 combined = torch.cat([vis_init_img, masked_init_img,
       image_tensor.float()/255], dim=1)
-save_image(combined.permute(2,0,1), os.path.join(output_dir,
+save_image(combined.permute(2,0,1), os.path.join(args.output_dir,
      f"{output_img_file}_combined.png"))

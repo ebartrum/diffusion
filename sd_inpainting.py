@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import requests
 from PIL import Image
 from io import BytesIO
+import argparse
 
 def download_image(url):
     response = requests.get(url)
@@ -28,8 +29,15 @@ def refine_mask(mask, dilation=2):
          res).squeeze(0).squeeze(0)
     return mask
 
-init_image = load_image("data/statue_scene/IMG_2707.jpg").resize((512, 512))
-mask_image = load_image("data/statue_segmentation/000.png").resize((512, 512))
+parser = argparse.ArgumentParser()
+parser.add_argument('--input_img', '-i', type=str, required=True)           # positional argument
+parser.add_argument('--input_mask', '-m', type=str, required=True)           # positional argument
+parser.add_argument('--prompt', '-p', type=str, required=True)           # positional argument
+parser.add_argument('--gpu' '-g', type=int, default=0)           # positional argument
+args = parser.parse_args()
+
+init_image = load_image(args.input_img).resize((512, 512))
+mask_image = load_image(args.input_mask).resize((512, 512))
 init_image = torch.from_numpy(np.array(init_image)).permute(2,0,1)/255
 mask_image = torch.from_numpy(np.array(mask_image)).permute(2,0,1)[0]/255
 
@@ -40,9 +48,8 @@ init_image = 2*init_image - 1
 device = "cuda"
 model_id = "runwayml/stable-diffusion-inpainting"
 pipe = StableDiffusionInpaintPipeline.from_pretrained(model_id).to(device)
-with open("data/prompts/dinosaur.txt", "r") as f:
+with open(args.prompt, "r") as f:
     prompt = f.readline()
-
 image = pipe(prompt=prompt, image=init_image, mask_image=mask_image).images[0]
 
 # Log output

@@ -33,7 +33,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--input_img', '-i', type=str, required=True)           # positional argument
 parser.add_argument('--input_mask', '-m', type=str, required=True)           # positional argument
 parser.add_argument('--prompt', '-p', type=str, required=True)           # positional argument
-parser.add_argument('--gpu' '-g', type=int, default=0)           # positional argument
+parser.add_argument('--gpu', '-g', type=int, default=0)           # positional argument
 args = parser.parse_args()
 
 init_image = load_image(args.input_img).resize((512, 512))
@@ -45,7 +45,7 @@ mask_image = refine_mask(mask_image, dilation=32)
 init_image = 2*init_image - 1
 
 # Load the pipeline
-device = "cuda"
+device = f"cuda:{args.gpu}"
 model_id = "runwayml/stable-diffusion-inpainting"
 pipe = StableDiffusionInpaintPipeline.from_pretrained(model_id).to(device)
 with open(args.prompt, "r") as f:

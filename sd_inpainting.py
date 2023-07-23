@@ -34,7 +34,11 @@ image = pipe(prompt=prompt, image=init_image, mask_image=mask_image).images[0]
 # Log output
 image.save("runs/sd_inpainting.png")
 image_tensor = torch.from_numpy(np.array(image))
+masked_init_img = init_image*(1-mask_image).unsqueeze(0)
+masked_init_img = 0.5*masked_init_img.permute(1,2,0).float() + 0.5
+
 combined = torch.cat([image_tensor.float()/255,
-      mask_image.unsqueeze(-1).expand(image_tensor.shape)], dim=1)
+      mask_image.unsqueeze(-1).expand(image_tensor.shape),
+                      masked_init_img], dim=1)
 
 save_image(combined.permute(2,0,1),"runs/inpainting_combined.png")

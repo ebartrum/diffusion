@@ -3,11 +3,11 @@ import torch.nn.functional as F
 from torchvision.utils import save_image
 import numpy as np
 from diffusers import StableDiffusionInpaintPipeline
-import matplotlib.pyplot as plt
 import requests
 from PIL import Image
 from io import BytesIO
 import argparse
+import os
 
 def download_image(url):
     response = requests.get(url)
@@ -53,7 +53,11 @@ with open(args.prompt, "r") as f:
 image = pipe(prompt=prompt, image=init_image, mask_image=mask_image).images[0]
 
 # Log output
-image.save("runs/sd_inpainting.png")
+output_img_file = os.path.basename(
+        args.input_img).split(".")[0] + "_inpainted"
+output_dir = "runs"
+
+image.save(os.path.join(output_dir, f"{output_img_file}.png"))
 image_tensor = torch.from_numpy(np.array(image))
 masked_init_img = init_image*(1-mask_image).unsqueeze(0)
 masked_init_img = 0.5*masked_init_img.permute(1,2,0).float() + 0.5
@@ -61,4 +65,5 @@ vis_init_img = 0.5*init_image.permute(1,2,0).float() + 0.5
 
 combined = torch.cat([vis_init_img, masked_init_img,
       image_tensor.float()/255], dim=1)
-save_image(combined.permute(2,0,1),"runs/inpainting_combined.png")
+save_image(combined.permute(2,0,1), os.path.join(output_dir,
+     f"{output_img_file}_combined.png"))

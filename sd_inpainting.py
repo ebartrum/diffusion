@@ -8,6 +8,7 @@ from PIL import Image
 from io import BytesIO
 import argparse
 import os
+import skimage
 
 def download_image(url):
     response = requests.get(url)
@@ -27,6 +28,8 @@ def refine_mask(mask, dilation=2):
     mask = F.max_pool2d(mask.unsqueeze(0),dilation).squeeze(0)
     mask = F.interpolate(mask.unsqueeze(0).unsqueeze(0),
          res).squeeze(0).squeeze(0)
+    mask = torch.from_numpy(skimage.morphology.area_opening(mask.numpy(),
+        area_threshold=6000, connectivity=2))
     return mask
 
 parser = argparse.ArgumentParser()

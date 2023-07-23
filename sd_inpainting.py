@@ -48,9 +48,8 @@ image.save("runs/sd_inpainting.png")
 image_tensor = torch.from_numpy(np.array(image))
 masked_init_img = init_image*(1-mask_image).unsqueeze(0)
 masked_init_img = 0.5*masked_init_img.permute(1,2,0).float() + 0.5
+vis_init_img = 0.5*init_image.permute(1,2,0).float() + 0.5
 
-combined = torch.cat([image_tensor.float()/255,
-      mask_image.unsqueeze(-1).expand(image_tensor.shape),
-                      masked_init_img], dim=1)
-
+combined = torch.cat([vis_init_img, masked_init_img,
+      image_tensor.float()/255], dim=1)
 save_image(combined.permute(2,0,1),"runs/inpainting_combined.png")

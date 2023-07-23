@@ -1,4 +1,5 @@
 import torch
+from torchvision.utils import save_image
 import numpy as np
 from diffusers import StableDiffusionInpaintPipeline
 import matplotlib.pyplot as plt
@@ -33,7 +34,7 @@ image = pipe(prompt=prompt, image=init_image, mask_image=mask_image).images[0]
 # Log output
 image.save("runs/sd_inpainting.png")
 image_tensor = torch.from_numpy(np.array(image))
-from torchvision.utils import save_image
 combined = torch.cat([image_tensor.float()/255,
       mask_image.unsqueeze(-1).expand(image_tensor.shape)], dim=1)
+
 save_image(combined.permute(2,0,1),"runs/inpainting_combined.png")

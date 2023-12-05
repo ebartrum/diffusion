@@ -1,11 +1,16 @@
 import torch
-from diffusers import StableDiffusionPipeline
+from diffusers import StableDiffusionPipeline, DDIMScheduler
 import matplotlib.pyplot as plt
 import os
 
 device = "cuda"
 model_id = "stabilityai/stable-diffusion-2-1-base"
-pipe = StableDiffusionPipeline.from_pretrained(model_id).to(device)
+model_dir = "./models"
+ddim = DDIMScheduler.from_pretrained(
+       model_id, subfolder="scheduler",
+       cache_dir=model_dir)
+pipe = StableDiffusionPipeline.from_pretrained(model_id,schedule=ddim,
+       cache_dir=model_dir).to(device)
 
 generator = torch.Generator(device=device).manual_seed(42)
 pipe_output = pipe(
@@ -16,12 +21,9 @@ pipe_output = pipe(
     num_inference_steps=35,
     generator=generator
 )
-
 image = pipe_output.images[0]
 
 # Log output
 output_dir = "out"
 os.makedirs(output_dir, exist_ok=True)
 image.save(os.path.join(output_dir,"sd.png"))
-plt.imshow(image)
-plt.show()

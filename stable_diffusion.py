@@ -8,9 +8,9 @@ model_id = "stabilityai/stable-diffusion-2-1-base"
 model_dir = "./models"
 ddim = DDIMScheduler.from_pretrained(
        model_id, subfolder="scheduler",
-       cache_dir=model_dir)
+       cache_dir=model_dir, local_files_only=True)
 pipe = StableDiffusionPipeline.from_pretrained(model_id,schedule=ddim,
-       cache_dir=model_dir).to(device)
+       cache_dir=model_dir, local_files_only=True).to(device)
 
 generator = torch.Generator(device=device).manual_seed(42)
 pipe_output = pipe(

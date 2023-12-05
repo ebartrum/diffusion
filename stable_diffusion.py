@@ -20,7 +20,8 @@ pipe_output = pipe(
 image = pipe_output.images[0]
 
 # Log output
-output_dir = "runs"
-image.save(os.path.join("out","sd.png"))
+output_dir = "out"
+os.makedirs(output_dir, exist_ok=True)
+image.save(os.path.join(output_dir,"sd.png"))
 plt.imshow(image)
 plt.show()

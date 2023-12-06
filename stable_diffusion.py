@@ -1,7 +1,14 @@
+import os
 import torch
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 import matplotlib.pyplot as plt
-import os
+
+if os.getenv("SLURM_JOB_ID"):
+    output_dir = os.path.join("out",
+        f"J{os.getenv('SLURM_JOB_ID')}_{os.getenv('SLURM_JOB_NAME')}")
+else:
+    output_dir = "out"
+os.makedirs(output_dir, exist_ok=True)
 
 device = "cuda"
 model_id = "stabilityai/stable-diffusion-2-1-base"
@@ -24,6 +31,4 @@ pipe_output = pipe(
 image = pipe_output.images[0]
 
 # Log output
-output_dir = "out"
-os.makedirs(output_dir, exist_ok=True)
 image.save(os.path.join(output_dir,"sd.png"))

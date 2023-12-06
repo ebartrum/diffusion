@@ -8,7 +8,16 @@ This repo is intended for experimentation with Stable Diffusion pipelines.
 
 ## Tips for running experiments
 
-Using this shell command, you can output a text file into an array of prompts line-by-line:
+Using this bash command, you can output a text file into an array of prompts line-by-line:
+`mapfile -t <example/prompts/list.txt prompts`
 
-`prompts=("${(f)$(< conf/prompts/list.txt)}")`
+For zsh:
 
+`prompts=("${(f)$(< example/prompts/list.txt)}")`
+
+Now iterate over the prompts:
+
+for prompt in "${prompts[@]}"
+do
+  python stable_diffusion.py prompt=$prompt
+done

@@ -1,3 +1,9 @@
-Here is how to make an array of prompts:
+# Diffusion
 
-prompts=("${(f)$(< conf/prompts/list.txt)}")
+This repo is intended for experimentation with Stable Diffusion pipelines.
+
+## Tips for running experiments
+
+Using this shell command, you can output a text file into an array of prompts line-by-line.
+`prompts=("${(f)$(< conf/prompts/list.txt)}")`
+

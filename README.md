@@ -17,7 +17,9 @@ For zsh:
 
 Now iterate over the prompts:
 
+```bash
 for prompt in "${prompts[@]}"
 do
   python stable_diffusion.py prompt=$prompt
 done
+```

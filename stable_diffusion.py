@@ -12,7 +12,6 @@ import torch
 def main(cfg):
     if os.getenv("SLURM_JOB_ID"):
         output_dir = os.path.join("out", SLURM_OUTPUT_DIR)
-
     else:
         output_dir = "out"
     os.makedirs(output_dir, exist_ok=True)

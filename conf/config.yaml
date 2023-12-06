@@ -1,0 +1,9 @@
+model_id: stabilityai/stable-diffusion-2-1-base
+model_dir: ./models
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+defaults:
+  - _self_
+  - override hydra/job_logging: disabled

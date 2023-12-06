@@ -1,11 +1,12 @@
 import os
+from utils import SLURM_OUTPUT_DIR
 import torch
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 import matplotlib.pyplot as plt
 
 if os.getenv("SLURM_JOB_ID"):
-    output_dir = os.path.join("out",
-        f"J{os.getenv('SLURM_JOB_ID')}_{os.getenv('SLURM_JOB_NAME')}")
+    output_dir = os.path.join("out", SLURM_OUTPUT_DIR)
+
 else:
     output_dir = "out"
 os.makedirs(output_dir, exist_ok=True)

@@ -8,7 +8,14 @@ This repo is intended for experimentation with Stable Diffusion pipelines.
 
 ## Tips for running experiments
 
+Scheduling a 10 minute job on Slurm, using singularity:
+```bash
+sbatch -t 10:0 -J stable_diffusion --gres gpu:1 -p devel --output ~/logs/%j.out --wrap
+"singularity exec --nv ~/Documents/containers/diffusion.simg python stable_diffusion.py"
+```
+
 Using this bash command, you can output a text file into an array of prompts line-by-line:
+
 `mapfile -t <example/prompts/list.txt prompts`
 
 For zsh:

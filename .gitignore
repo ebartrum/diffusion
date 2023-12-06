@@ -3,3 +3,4 @@ data
 __pycache__
 notes.txt
 models
+conf/prompts

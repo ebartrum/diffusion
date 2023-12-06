@@ -28,15 +28,15 @@ def main(cfg):
 
     generator = torch.Generator(device=device).manual_seed(42)
     pipe_output = pipe(
-        prompt="A cute and realistic kitten",
-        negative_prompt="Oversaturated, blurry, low quality",
-        height=512, width=512,
-        guidance_scale=8,
-        num_inference_steps=35,
+        prompt=cfg.prompt,
+        negative_prompt=cfg.negative_prompt,
+        height=cfg.img_resolution, width=cfg.img_resolution,
+        guidance_scale=cfg.guidance_scale,
+        num_inference_steps=cfg.num_inference_steps,
         generator=generator
     )
     image = pipe_output.images[0]
-    image.save(os.path.join(output_dir,"sd.png"))
+    image.save(os.path.join(output_dir,"out.png"))
 
 if __name__ == "__main__":
     main()

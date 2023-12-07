@@ -26,15 +26,13 @@ from model_utils import (
             )
 import shutil
 import logging
-from utils import SLURM_OUTPUT_DIR
 from transformers import CLIPTextModel, CLIPTokenizer
 from transformers import logging as transformers_logging
-transformers_logging.set_verbosity_error()  # disable warning
-
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers import DDIMScheduler
 import hydra
 from omegaconf import OmegaConf
+from utils import SLURM_OUTPUT_DIR
 
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)

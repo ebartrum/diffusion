@@ -27,6 +27,7 @@ from model_utils import (
             )
 import shutil
 import logging
+from utils import SLURM_OUTPUT_DIR
 
 # from diffusers import StableDiffusionPipeline
 from transformers import CLIPTextModel, CLIPTokenizer

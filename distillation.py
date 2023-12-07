@@ -37,75 +37,17 @@ import hydra
 
 IMG_EXTENSIONS = ['jpg', 'png', 'jpeg', 'bmp']
 
-def get_parser(**parser_kwargs):
-    def str2bool(v):
-        if isinstance(v, bool):
-            return v
-        if v.lower() in ("yes", "true", "t", "y", "1"):
-            return True
-        elif v.lower() in ("no", "false", "f", "n", "0"):
-            return False
-        else:
-            raise argparse.ArgumentTypeError("Boolean value expected.")
+class nullcontext:
+    def __enter__(self):
+        return None
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
-    parser = argparse.ArgumentParser(**parser_kwargs)
-    ### basics
-    parser.add_argument('--seed', default=1024, type=int, help='global seed')
-    parser.add_argument('--log_steps', type=int, default=50, help='Log steps')
-    parser.add_argument('--log_progress', type=str2bool, default=False, help='Log progress')
-    parser.add_argument('--log_gif', type=str2bool, default=False, help='Log gif')
-    parser.add_argument('--model_path', type=str, default='CompVis/stable-diffusion-v1-4', help='Path to the model')
-    current_datetime = datetime.now()
-    parser.add_argument('--half_inference', type=str2bool, default=False, help='inference sd with half precision')
-    parser.add_argument('--save_x0', type=str2bool, default=False, help='save predicted x0')
-    parser.add_argument('--save_phi_model', type=str2bool, default=False, help='save save_phi_model, lora or simple unet')
-    parser.add_argument('--load_phi_model_path', type=str, default='', help='phi_model_path to load')
-    parser.add_argument('--use_mlp_particle', type=str2bool, default=False, help='use_mlp_particle as representation')
-    parser.add_argument('--init_img_path', type=str, default='', help='init particle from a known image path')
-    ### sampling
-    parser.add_argument('--num_steps', type=int, default=1000, help='Number of steps for random sampling')
-    parser.add_argument('--t_end', type=int, default=980, help='largest possible timestep for random sampling')
-    parser.add_argument('--t_start', type=int, default=20, help='least possible timestep for random sampling')
-    parser.add_argument('--multisteps', default=1, type=int, help='multisteps to predict x0')
-    parser.add_argument('--t_schedule', default='descend', type=str, help='t_schedule for sampling')
-    parser.add_argument('--prompt', default="a photograph of an astronaut riding a horse", type=str, help='prompt')
-    parser.add_argument('--height', default=512, type=int, help='height of image')
-    parser.add_argument('--width', default=512, type=int, help='width of image')
-    parser.add_argument('--rgb_as_latents', default=True, type=str2bool, help='width of image')
-    parser.add_argument('--generation_mode', default='sds', type=str, help='sd generation mode')
-    parser.add_argument('--batch_size', default=1, type=int, help='batch_size / overall number of particles')
-    parser.add_argument('--particle_num_vsd', default=1, type=int, help='batch size for VSD training')
-    parser.add_argument('--particle_num_phi', default=1, type=int, help='number of particles to train phi model')
-    parser.add_argument('--guidance_scale', default=7.5, type=float, help='Scale for classifier-free guidance')
-    parser.add_argument('--cfg_phi', default=1., type=float, help='Scale for classifier-free guidance of phi model')
-    ### optimizing
-    parser.add_argument('--optimizer', type=str, default='adam', help='Optimizer')
-    parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
-    parser.add_argument('--betas', type=tuple, default=(0.9, 0.999), help='Betas for Adam optimizer')
-    parser.add_argument('--weight_decay', type=float, default=0.0, help='Weight decay for Adam optimizer')
-    parser.add_argument('--phi_lr', type=float, default=0.0001, help='Learning rate for phi model')
-    parser.add_argument('--phi_model', type=str, default='lora', help='models servered as epsilon_phi')
-    parser.add_argument('--use_t_phi', type=str2bool, default=False, help='use different t for phi finetuning')
-    parser.add_argument('--phi_update_step', type=int, default=1, help='phi finetuning steps in each iteration')
-    parser.add_argument('--lora_vprediction', type=str2bool, default=False, help='use v prediction model for lora')
-    parser.add_argument('--lora_scale', type=float, default=1.0, help='lora_scale of the unet cross attn')
-    parser.add_argument('--use_scheduler', default=False, type=str2bool, help='use_scheduler for lr')
-    parser.add_argument('--lr_scheduler_start_factor', type=float, default=1/3, help='Start factor for learning rate scheduler')
-    parser.add_argument('--lr_scheduler_iters', type=int, default=300, help='Iterations for learning rate scheduler')
-    parser.add_argument('--loss_weight_type', type=str, default='none', help='type of loss weight')
-    parser.add_argument('--nerf_init', type=str2bool, default=False, help='initialize with diffusion models as mean predictor')
-    parser.add_argument('--grad_scale', type=float, default=1., help='grad_scale for loss in vsd')
+@hydra.main(config_path="conf/distillation",
+            config_name="config", version_base=None)
+def main(cfg):
+    args = cfg
 
-    ### new
-    parser.add_argument('--model_id', type=str, default='stabilityai/stable-diffusion-2-1-base')
-    parser.add_argument('--model_dir', type=str, default='./models')
-    parser.add_argument('--local_files_only', type=str2bool, default=True)
-
-    args = parser.parse_args()
-    assert args.generation_mode in ['t2i', 'sds', 'vsd']
-    assert args.phi_model in ['lora', 'unet_simple']
-    if args.init_img_path:
-        assert args.batch_size == 1
     # for sds and t2i, use only args.batch_size
     if args.generation_mode in ['t2i', 'sds']:
         args.particle_num_vsd = args.batch_size
@@ -121,18 +63,7 @@ def get_parser(**parser_kwargs):
     np.random.seed(args.seed)  # Numpy module.
     random.seed(args.seed)  # Python random module.
     torch.manual_seed(args.seed)
-    return args
 
-class nullcontext:
-    def __enter__(self):
-        return None
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-@hydra.main(config_path="conf/distillation",
-            config_name="config", version_base=None)
-def main(cfg):
-    args = cfg
     run_id = "local"
     if os.getenv("SLURM_JOB_ID"):
         output_dir = os.path.join("out", SLURM_OUTPUT_DIR)
@@ -432,6 +363,7 @@ def main(cfg):
                     loss_phi = phi_vsd_grad_diffuser(unet_phi, noisy_latents_phi.detach(), noise_phi, text_embeddings_phi, t_phi, \
                                                      cross_attention_kwargs=cross_attention_kwargs, scheduler=scheduler, \
                                                         lora_v=args.lora_vprediction, half_inference=args.half_inference)
+
                     loss_phi.backward()
                     phi_optimizer.step()
 

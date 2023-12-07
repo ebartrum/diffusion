@@ -1,0 +1,8 @@
+imageio
+numpy
+scipy
+tqdm
+diffusers==0.18.2
+transformers==4.27.4
+ipdb
+hydra-core

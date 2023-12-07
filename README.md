@@ -11,13 +11,7 @@ This repo is intended for experimentation with Stable Diffusion pipelines.
 `huggingface-cli download stabilityai/stable-video-diffusion-img2vid-xt`
 
 ## How to make a sandbox from a singularity simg file
-
-First start an interactive job on JADE:
-
-`srun -I --pty -t 0-10:00 --gres gpu:1 -p small bash`
-
-Now run 
-`singularity build --sandbox diffusion_sandbox/ diffusion.simg`
+`srun -t 0-30:00 --gres gpu:1 -p small singularity build --sandbox diffusion_sandbox/ diffusion.simg`
 
 ## Tips for running experiments
 

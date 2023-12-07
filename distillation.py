@@ -160,15 +160,17 @@ def main():
     logger.info(f'load models from path: {args.model_path}')
     args.model_id = "stabilityai/stable-diffusion-2-1-base"
     args.local_files_only = True
+    args.model_dir = "./models"
+
     vae = AutoencoderKL.from_pretrained(args.model_id, subfolder="vae",
-            cache_dir="./models/", torch_dtype=dtype, local_files_only=args.local_files_only)
+            cache_dir=args.model_dir, torch_dtype=dtype, local_files_only=args.local_files_only)
     tokenizer = CLIPTokenizer.from_pretrained(args.model_id, subfolder="tokenizer",
-            cache_dir="./models/", torch_dtype=dtype, local_files_only=args.local_files_only)
-    text_encoder = CLIPTextModel.from_pretrained(args.model_id, subfolder="text_encoder", cache_dir="./models/", torch_dtype=dtype, local_files_only=args.local_files_only)
-    unet = UNet2DConditionModel.from_pretrained(args.model_id, subfolder="unet", cache_dir="./models/", torch_dtype=dtype, local_files_only=args.local_files_only)
+            cache_dir=args.model_dir, torch_dtype=dtype, local_files_only=args.local_files_only)
+    text_encoder = CLIPTextModel.from_pretrained(args.model_id, subfolder="text_encoder", cache_dir=args.model_dir, torch_dtype=dtype, local_files_only=args.local_files_only)
+    unet = UNet2DConditionModel.from_pretrained(args.model_id, subfolder="unet", cache_dir=args.model_dir, torch_dtype=dtype, local_files_only=args.local_files_only)
     scheduler = DDIMScheduler.from_pretrained(
            args.model_id, subfolder="scheduler",
-           cache_dir="./models", torch_dtype=dtype, local_files_only=args.local_files_only)
+           cache_dir=args.model_dir, torch_dtype=dtype, local_files_only=args.local_files_only)
 
     if args.half_inference:
         unet = unet.half()
@@ -397,7 +399,6 @@ def main():
                                                                         cfg_phi=args.cfg_phi, grad_scale=args.grad_scale)
             ## weighting
             grad_ *= loss_weights[int(t)]
-            # ref: https://github.com/threestudio-project/threestudio/blob/5e29759db7762ec86f503f97fe1f71a9153ce5d9/threestudio/models/guidance/stable_diffusion_guidance.py#L427
             # construct loss
             target = (latents_vsd - grad_).detach()
             # d(loss)/d(latents) = latents - target = latents - (latents - grad) = grad

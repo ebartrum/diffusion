@@ -159,14 +159,19 @@ def main():
     ### load model
     logger.info(f'load models from path: {args.model_path}')
     # 1. Load the autoencoder model which will be used to decode the latents into image space.
-    vae = AutoencoderKL.from_pretrained(args.model_path, subfolder="vae", torch_dtype=dtype)
+    args.model_id = "stabilityai/stable-diffusion-2-1-base"
+    vae = AutoencoderKL.from_pretrained(args.model_id, subfolder="vae",
+            cache_dir="./models/", torch_dtype=dtype, local_files_only=True)
     # 2. Load the tokenizer and text encoder to tokenize and encode the text.
-    tokenizer = CLIPTokenizer.from_pretrained(args.model_path, subfolder="tokenizer", torch_dtype=dtype)
-    text_encoder = CLIPTextModel.from_pretrained(args.model_path, subfolder="text_encoder", torch_dtype=dtype)
+    tokenizer = CLIPTokenizer.from_pretrained(args.model_id, subfolder="tokenizer",
+            cache_dir="./models/", torch_dtype=dtype, local_files_only=True)
+    text_encoder = CLIPTextModel.from_pretrained(args.model_id, subfolder="text_encoder", cache_dir="./models/", torch_dtype=dtype, local_files_only=True)
     # 3. The UNet model for generating the latents.
-    unet = UNet2DConditionModel.from_pretrained(args.model_path, subfolder="unet", torch_dtype=dtype)
+    unet = UNet2DConditionModel.from_pretrained(args.model_id, subfolder="unet", cache_dir="./models/", torch_dtype=dtype, local_files_only=True)
     # 4. Scheduler
-    scheduler = DDIMScheduler.from_pretrained(args.model_path, subfolder="scheduler", torch_dtype=dtype)
+    scheduler = DDIMScheduler.from_pretrained(
+           args.model_id, subfolder="scheduler",
+           cache_dir="./models", torch_dtype=dtype, local_files_only=True)
 
     if args.half_inference:
         unet = unet.half()

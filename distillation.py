@@ -314,7 +314,6 @@ def main(cfg):
             noisy_latents = scheduler.add_noise(latents_vsd, noise, t)
             ######## Do the gradient for latents!!! #########
             optimizer.zero_grad()
-            # predict x0 use ddim sampling
             grad_, noise_pred, noise_pred_phi = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
                                                     guidance_scale=cfg.guidance_scale, unet_phi=unet_phi, \
                                                         generation_mode=cfg.generation_mode, phi_model=cfg.phi_model, \
@@ -324,9 +323,7 @@ def main(cfg):
                                                                         cfg_phi=cfg.cfg_phi, grad_scale=cfg.grad_scale)
             ## weighting
             grad_ *= loss_weights[int(t)]
-            # construct loss
             target = (latents_vsd - grad_).detach()
-            # d(loss)/d(latents) = latents - target = latents - (latents - grad) = grad
             loss = 0.5 * F.mse_loss(latents_vsd, target, reduction="mean") / cfg.batch_size
             loss.backward()
             optimizer.step()

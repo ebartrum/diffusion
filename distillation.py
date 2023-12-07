@@ -95,6 +95,12 @@ def get_parser(**parser_kwargs):
     parser.add_argument('--loss_weight_type', type=str, default='none', help='type of loss weight')
     parser.add_argument('--nerf_init', type=str2bool, default=False, help='initialize with diffusion models as mean predictor')
     parser.add_argument('--grad_scale', type=float, default=1., help='grad_scale for loss in vsd')
+
+    ### new
+    parser.add_argument('--model_id', type=str, default='stabilityai/stable-diffusion-2-1-base')
+    parser.add_argument('--model_dir', type=str, default='./models')
+    parser.add_argument('--local_files_only', type=str2bool, default=True)
+
     args = parser.parse_args()
     assert args.generation_mode in ['t2i', 'sds', 'vsd']
     assert args.phi_model in ['lora', 'unet_simple']
@@ -157,11 +163,6 @@ def main():
 
     #######################################################################################
     ### load model
-    logger.info(f'load models from path: {args.model_path}')
-    args.model_id = "stabilityai/stable-diffusion-2-1-base"
-    args.local_files_only = True
-    args.model_dir = "./models"
-
     vae = AutoencoderKL.from_pretrained(args.model_id, subfolder="vae",
             cache_dir=args.model_dir, torch_dtype=dtype, local_files_only=args.local_files_only)
     tokenizer = CLIPTokenizer.from_pretrained(args.model_id, subfolder="tokenizer",

@@ -35,14 +35,6 @@ from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers import DDIMScheduler
 import hydra
 
-IMG_EXTENSIONS = ['jpg', 'png', 'jpeg', 'bmp']
-
-class nullcontext:
-    def __enter__(self):
-        return None
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
 def main(cfg):

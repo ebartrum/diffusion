@@ -6,7 +6,11 @@ This repo is intended for experimentation with Stable Diffusion pipelines.
 
 *A cute and realistic kitten* 
 
-##Make a sandbox from a singularity simg file
+## How to download model weights
+
+`huggingface-cli download stabilityai/stable-video-diffusion-img2vid-xt`
+
+## How to make a sandbox from a singularity simg file
 
 First start an interactive job on JADE:
 

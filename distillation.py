@@ -481,10 +481,6 @@ def main():
                 update_curve(train_loss_values, 'Train_loss', 'steps', 'Loss', args.work_dir, args.run_id)
                 update_curve(ave_train_loss_values, 'Ave_Train_loss', 'steps', 'Loss', args.work_dir, args.run_id, log_steps=log_steps[1:])
                 # calculate psnr value and update curve
-            if first_iteration and device==torch.device('cuda'):
-                global_free, total_gpu = torch.cuda.mem_get_info(0)
-                logger.info(f'global free and total GPU memory: {round(global_free/1024**3,6)} GB, {round(total_gpu/1024**3,6)} GB')
-                first_iteration = False
 
     if args.log_gif:
         # make gif

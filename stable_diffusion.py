@@ -1,5 +1,5 @@
 from diffusers import StableDiffusionPipeline, DDIMScheduler
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
 from utils import SLURM_OUTPUT_DIR
 import hydra
 import yaml

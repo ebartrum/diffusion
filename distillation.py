@@ -34,6 +34,7 @@ transformers_logging.set_verbosity_error()  # disable warning
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers import DDIMScheduler
 import hydra
+from omegaconf import OmegaConf
 
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
@@ -61,6 +62,8 @@ def main(cfg):
     else:
         output_dir = "out"
     os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir,"cfg.yaml"), 'w') as f:
+        f.write(OmegaConf.to_yaml(cfg))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     dtype = torch.float32 # use float32 by default
@@ -81,9 +84,6 @@ def main(cfg):
     logger.info(f'Using device: {device}; version: {str(torch.version.cuda)}')
     if device.type == 'cuda':
         logger.info(torch.cuda.get_device_name(0))
-    logger.info("################# Arguments: ####################")
-    for arg in vars(cfg):
-        logger.info(f"\t{arg}: {getattr(cfg, arg)}")
 
     #######################################################################################
     ### load model

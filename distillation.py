@@ -28,8 +28,6 @@ from model_utils import (
 import shutil
 import logging
 from utils import SLURM_OUTPUT_DIR
-
-# from diffusers import StableDiffusionPipeline
 from transformers import CLIPTextModel, CLIPTokenizer
 from transformers import logging as transformers_logging
 transformers_logging.set_verbosity_error()  # disable warning
@@ -51,7 +49,6 @@ def get_parser(**parser_kwargs):
             raise argparse.ArgumentTypeError("Boolean value expected.")
 
     parser = argparse.ArgumentParser(**parser_kwargs)
-    # parameters
     ### basics
     parser.add_argument('--seed', default=1024, type=int, help='global seed')
     parser.add_argument('--log_steps', type=int, default=50, help='Log steps')
@@ -151,7 +148,6 @@ def main():
     logger.info(f'[INFO] Cmdline: '+' '.join(sys.argv))
 
     ### log basic info
-    args.device = device
     logger.info(f'Using device: {device}; version: {str(torch.version.cuda)}')
     if device.type == 'cuda':
         logger.info(torch.cuda.get_device_name(0))
@@ -162,20 +158,17 @@ def main():
     #######################################################################################
     ### load model
     logger.info(f'load models from path: {args.model_path}')
-    # 1. Load the autoencoder model which will be used to decode the latents into image space.
     args.model_id = "stabilityai/stable-diffusion-2-1-base"
+    args.local_files_only = True
     vae = AutoencoderKL.from_pretrained(args.model_id, subfolder="vae",
-            cache_dir="./models/", torch_dtype=dtype, local_files_only=True)
-    # 2. Load the tokenizer and text encoder to tokenize and encode the text.
+            cache_dir="./models/", torch_dtype=dtype, local_files_only=args.local_files_only)
     tokenizer = CLIPTokenizer.from_pretrained(args.model_id, subfolder="tokenizer",
-            cache_dir="./models/", torch_dtype=dtype, local_files_only=True)
-    text_encoder = CLIPTextModel.from_pretrained(args.model_id, subfolder="text_encoder", cache_dir="./models/", torch_dtype=dtype, local_files_only=True)
-    # 3. The UNet model for generating the latents.
-    unet = UNet2DConditionModel.from_pretrained(args.model_id, subfolder="unet", cache_dir="./models/", torch_dtype=dtype, local_files_only=True)
-    # 4. Scheduler
+            cache_dir="./models/", torch_dtype=dtype, local_files_only=args.local_files_only)
+    text_encoder = CLIPTextModel.from_pretrained(args.model_id, subfolder="text_encoder", cache_dir="./models/", torch_dtype=dtype, local_files_only=args.local_files_only)
+    unet = UNet2DConditionModel.from_pretrained(args.model_id, subfolder="unet", cache_dir="./models/", torch_dtype=dtype, local_files_only=args.local_files_only)
     scheduler = DDIMScheduler.from_pretrained(
            args.model_id, subfolder="scheduler",
-           cache_dir="./models", torch_dtype=dtype, local_files_only=True)
+           cache_dir="./models", torch_dtype=dtype, local_files_only=args.local_files_only)
 
     if args.half_inference:
         unet = unet.half()
@@ -187,7 +180,6 @@ def main():
     vae.requires_grad_(False)
     text_encoder.requires_grad_(False)
     unet.requires_grad_(False)
-    # all variables in same device for scheduler.step()
     scheduler.betas = scheduler.betas.to(device)
     scheduler.alphas = scheduler.alphas.to(device)
     scheduler.alphas_cumprod = scheduler.alphas_cumprod.to(device)
@@ -296,7 +288,6 @@ def main():
         with torch.no_grad():
             noise_pred = predict_noise0_diffuser(unet, particles, text_embeddings_vsd, t=999, guidance_scale=7.5, scheduler=scheduler)
         particles = scheduler.step(noise_pred, 999, particles).pred_original_sample
-    # latents = latents * scheduler.init_noise_sigma
     #######################################################################################
     ### configure optimizer and loss function
     if args.use_mlp_particle:
@@ -397,8 +388,6 @@ def main():
             ######## Do the gradient for latents!!! #########
             optimizer.zero_grad()
             # predict x0 use ddim sampling
-            # z0_latents = predict_x0_diffuser(unet, scheduler, noisy_latents, text_embeddings, t, guidance_scale=args.guidance_scale)
-            # loss step
             grad_, noise_pred, noise_pred_phi = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
                                                     guidance_scale=args.guidance_scale, unet_phi=unet_phi, \
                                                         generation_mode=args.generation_mode, phi_model=args.phi_model, \

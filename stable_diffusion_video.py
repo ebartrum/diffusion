@@ -11,7 +11,7 @@ pipe = StableVideoDiffusionPipeline.from_pretrained(
 pipe.enable_model_cpu_offload()
 
 # Load the conditioning image
-image = load_image("https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/diffusers/svd/rocket.png?download=true")
+image = load_image("./misc/rocket.png")
 image = image.resize((1024, 576))
 
 generator = torch.manual_seed(42)

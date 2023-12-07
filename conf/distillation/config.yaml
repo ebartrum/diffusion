@@ -1,0 +1,51 @@
+prompt: a photograph of an astronaut riding a horse
+seed: 1024
+log_steps: 50
+log_progress: False
+log_gif: False
+half_inference: False
+save_x0: False
+save_phi_model: False
+load_phi_model_path:
+use_mlp_particle: False
+init_img_path:
+num_steps: 1000
+t_end: 980
+t_start: 20
+multisteps: 1
+t_schedule: descend
+height: 512
+width: 512
+rgb_as_latents: True
+generation_mode: sds
+batch_size: 1
+particle_num_vsd: 1
+particle_num_phi: 1
+guidance_scale: 7.5
+cfg_phi: 1.
+optimizer: adam
+lr: 0.01
+betas: [0.9, 0.999]
+weight_decay: 0.0
+phi_lr: 0.0001
+phi_model: lora
+use_t_phi: False
+phi_update_step: 1
+lora_vprediction: False
+lora_scale: 1.0
+use_scheduler: False
+lr_scheduler_start_factor: 1/3
+lr_scheduler_iters: 300
+loss_weight_type: none
+nerf_init: False
+grad_scale: 1.
+local_files_only: True
+model_id: stabilityai/stable-diffusion-2-1-base
+model_dir: ./models
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+defaults:
+  - _self_
+  - override hydra/job_logging: disabled

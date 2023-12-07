@@ -1,5 +1,4 @@
 import os
-join = os.path.join
 import sys
 import argparse
 import numpy as np
@@ -34,6 +33,7 @@ transformers_logging.set_verbosity_error()  # disable warning
 
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers import DDIMScheduler
+import hydra
 
 IMG_EXTENSIONS = ['jpg', 'png', 'jpeg', 'bmp']
 
@@ -129,8 +129,10 @@ class nullcontext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-def main():
-    args = get_parser()
+@hydra.main(config_path="conf/distillation",
+            config_name="config", version_base=None)
+def main(cfg):
+    args = cfg
     run_id = "local"
     if os.getenv("SLURM_JOB_ID"):
         output_dir = os.path.join("out", SLURM_OUTPUT_DIR)

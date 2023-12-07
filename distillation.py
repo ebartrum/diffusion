@@ -58,9 +58,6 @@ def get_parser(**parser_kwargs):
     parser.add_argument('--log_gif', type=str2bool, default=False, help='Log gif')
     parser.add_argument('--model_path', type=str, default='CompVis/stable-diffusion-v1-4', help='Path to the model')
     current_datetime = datetime.now()
-    parser.add_argument('--run_date', type=str, default=current_datetime.strftime("%Y%m%d"), help='Run date')
-    parser.add_argument('--run_time', type=str, default=current_datetime.strftime("%H%M"), help='Run time')
-    parser.add_argument('--work_dir', type=str, default='work_dir/prolific_dreamer2d', help='Working directory')
     parser.add_argument('--half_inference', type=str2bool, default=False, help='inference sd with half precision')
     parser.add_argument('--save_x0', type=str2bool, default=False, help='save predicted x0')
     parser.add_argument('--save_phi_model', type=str2bool, default=False, help='save save_phi_model, lora or simple unet')
@@ -101,11 +98,6 @@ def get_parser(**parser_kwargs):
     parser.add_argument('--nerf_init', type=str2bool, default=False, help='initialize with diffusion models as mean predictor')
     parser.add_argument('--grad_scale', type=float, default=1., help='grad_scale for loss in vsd')
     args = parser.parse_args()
-    # create working directory
-    args.run_id = args.run_date + '_' + args.run_time
-    args.work_dir = f'{args.work_dir}_{args.run_id}_{args.generation_mode}_cfg_{args.guidance_scale}_bs_{args.batch_size}_num_steps_{args.num_steps}_tschedule_{args.t_schedule}'
-    args.work_dir = args.work_dir + f'_{args.phi_model}' if args.generation_mode == 'vsd' else args.work_dir
-    os.makedirs(args.work_dir, exist_ok=True)
     assert args.generation_mode in ['t2i', 'sds', 'vsd']
     assert args.phi_model in ['lora', 'unet_simple']
     if args.init_img_path:
@@ -137,14 +129,17 @@ class nullcontext:
 
 def main():
     args = get_parser()
+    run_id = "local"
+    work_dir = f'out/{run_id}_{args.generation_mode}_cfg_{args.guidance_scale}_bs_{args.batch_size}_num_steps_{args.num_steps}_tschedule_{args.t_schedule}'
+    os.makedirs(work_dir, exist_ok=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     dtype = torch.float32 # use float32 by default
     image_name = args.prompt.replace(' ', '_')
-    shutil.copyfile(__file__, join(args.work_dir, os.path.basename(__file__)))
+    shutil.copyfile(__file__, join(work_dir, os.path.basename(__file__)))
     ### set up logger
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    logging.basicConfig(filename=f'{args.work_dir}/std_{args.run_id}.log', filemode='w',
+    logging.basicConfig(filename=f'{work_dir}/std_{run_id}.log', filemode='w',
                         format='%(asctime)s %(levelname)s --> %(message)s',
                         level=logging.INFO,
                         datefmt='%Y-%m-%d %H:%M:%S')
@@ -474,38 +469,34 @@ def main():
                         image = image_
                 if args.log_progress:
                     image_progress.append((image/2+0.5).clamp(0, 1))
-                save_image((image/2+0.5).clamp(0, 1), f'{args.work_dir}/{image_name}_image_step{step}_t{t.item()}.png')
+                save_image((image/2+0.5).clamp(0, 1), f'{work_dir}/{image_name}_image_step{step}_t{t.item()}.png')
                 ave_train_loss_value = np.average(train_loss_values)
                 ave_train_loss_values.append(ave_train_loss_value) if step > 0 else None
                 logger.info(f'step: {step}; average loss: {ave_train_loss_value}')
-                update_curve(train_loss_values, 'Train_loss', 'steps', 'Loss', args.work_dir, args.run_id)
-                update_curve(ave_train_loss_values, 'Ave_Train_loss', 'steps', 'Loss', args.work_dir, args.run_id, log_steps=log_steps[1:])
+                update_curve(train_loss_values, 'Train_loss', 'steps', 'Loss', work_dir, run_id)
+                update_curve(ave_train_loss_values, 'Ave_Train_loss', 'steps', 'Loss', work_dir, run_id, log_steps=log_steps[1:])
                 # calculate psnr value and update curve
 
     if args.log_gif:
         # make gif
-        images = sorted(Path(args.work_dir).glob(f"*{image_name}*.png"))
+        images = sorted(Path(work_dir).glob(f"*{image_name}*.png"))
         images = [imageio.imread(image) for image in images]
-        imageio.mimsave(f'{args.work_dir}/{image_name}.gif', images, duration=0.3)
+        imageio.mimsave(f'{work_dir}/{image_name}.gif', images, duration=0.3)
     if args.log_progress and args.batch_size == 1:
         concatenated_images = torch.cat(image_progress, dim=0)
-        save_image(concatenated_images, f'{args.work_dir}/{image_name}_prgressive.png')
+        save_image(concatenated_images, f'{work_dir}/{image_name}_prgressive.png')
     # save final image
     if args.generation_mode == 't2i':
         image = image_
     else:
         image = get_images(particles, vae, args.rgb_as_latents, use_mlp_particle=args.use_mlp_particle)
-    save_image((image/2+0.5).clamp(0, 1), f'{args.work_dir}/final_image_{image_name}.png')
-    # through vae will get image with less artifacts for image particles
-    # from model_utils import batch_decode_vae
-    # images = batch_decode_vae(latents, vae)
-    # save_image((images/2+0.5).clamp(0, 1), f'{args.work_dir}/final_image_2_{image_name}.png')
+    save_image((image/2+0.5).clamp(0, 1), f'{work_dir}/final_image_{image_name}.png')
 
     if args.generation_mode in ['vsd'] and args.save_phi_model:
         if args.phi_model in ['lora']:
-            unet_phi.save_attn_procs(save_directory=f'{args.work_dir}')
+            unet_phi.save_attn_procs(save_directory=f'{work_dir}')
         elif args.phi_model in ['unet_simple']:
-            unet_phi.save_pretrained(save_directory=f'{args.work_dir}')
+            unet_phi.save_pretrained(save_directory=f'{work_dir}')
 
 #########################################################################################
 if __name__ == "__main__":

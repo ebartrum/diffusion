@@ -1,5 +1,4 @@
 import torch
-
 from diffusers import StableVideoDiffusionPipeline
 from diffusers.utils import load_image, export_to_video
 

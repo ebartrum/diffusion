@@ -31,11 +31,7 @@ from utils import SLURM_OUTPUT_DIR
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
 def main(cfg):
-    cfg.particle_num_vsd = cfg.batch_size
-    cfg.particle_num_phi = cfg.batch_size
-    assert (cfg.batch_size >= cfg.particle_num_vsd) and (cfg.batch_size >= cfg.particle_num_phi)
-    if cfg.batch_size > cfg.particle_num_vsd:
-        print(f'use multiple ({cfg.batch_size}) particles!! Will get inconsistent x0 recorded')
+    assert cfg.batch_size == 1
     ### set random seed everywhere
     torch.manual_seed(cfg.seed)
     if torch.cuda.is_available():
@@ -92,7 +88,7 @@ def main(cfg):
     vae_phi = vae
 
     ### get text embedding
-    text_input = tokenizer([cfg.prompt] * max(cfg.particle_num_vsd,cfg.particle_num_phi), padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt")
+    text_input = tokenizer([cfg.prompt], padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt")
     with torch.no_grad():
         text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
     max_length = text_input.input_ids.shape[-1]

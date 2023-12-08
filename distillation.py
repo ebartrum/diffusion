@@ -376,7 +376,7 @@ def main(cfg):
                         image = image_
                 if cfg.log_progress:
                     image_progress.append((image/2+0.5).clamp(0, 1))
-                save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/{image_name}_image_step{step}_t{t.item()}.png')
+                save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/step{step}_t{t.item()}.png')
 
     if cfg.log_gif:
         # make gif

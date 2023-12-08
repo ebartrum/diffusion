@@ -14,7 +14,6 @@ t_schedule: descend
 height: 512
 width: 512
 rgb_as_latents: True
-batch_size: 1 #TODO: delete
 particle_num_vsd: 1 #TODO: delete
 particle_num_phi: 1 #TODO: delete
 guidance_scale: 7.5

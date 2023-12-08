@@ -31,7 +31,6 @@ from utils import SLURM_OUTPUT_DIR
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
 def main(cfg):
-    assert cfg.batch_size == 1
     ### set random seed everywhere
     torch.manual_seed(cfg.seed)
     if torch.cuda.is_available():
@@ -104,17 +103,17 @@ def main(cfg):
 
     ### initialize particles
     if cfg.rgb_as_latents:
-        particles = torch.randn((cfg.batch_size, unet.config.in_channels,
+        particles = torch.randn((1, unet.config.in_channels,
              cfg.height // 8, cfg.width // 8))
     else:
-        particles = torch.randn((cfg.batch_size, 3, cfg.height, cfg.width))
+        particles = torch.randn((1, 3, cfg.height, cfg.width))
         cfg.lr = cfg.lr * 1   # need larger lr for rgb particles
     particles = particles.to(device, dtype=dtype)
     particles.requires_grad = True
     particles_to_optimize = [particles]
 
     total_parameters = sum(p.numel() for p in particles_to_optimize if p.requires_grad)
-    print(f'Total number of trainable parameters in particles: {total_parameters}; number of particles: {cfg.batch_size}')
+    print(f'Total number of trainable parameters in particles: {total_parameters}; number of particles: 1')
     optimizer = torch.optim.Adam(particles_to_optimize, lr=cfg.lr)
 
     #######################################################################################
@@ -148,7 +147,7 @@ def main(cfg):
         ## weighting
         grad *= loss_weights[int(t)]
         target = (latents - grad).detach()
-        loss = 0.5 * F.mse_loss(latents, target, reduction="mean") / cfg.batch_size
+        loss = 0.5 * F.mse_loss(latents, target, reduction="mean")
         loss.backward()
         optimizer.step()
         torch.cuda.empty_cache()

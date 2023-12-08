@@ -174,8 +174,6 @@ def main(cfg):
         particles = torch.randn((cfg.batch_size, 3, cfg.height, cfg.width))
         cfg.lr = cfg.lr * 1   # need larger lr for rgb particles
     particles = particles.to(device, dtype=dtype)
-
-    ### configure optimizer and loss function
     particles.requires_grad = True
     particles_to_optimize = [particles]
 

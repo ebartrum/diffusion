@@ -344,28 +344,13 @@ def get_optimizer(parameters, config):
     return optimizer
 
 
-def get_latents(particles, vae, rgb_as_latents=False, use_mlp_particle=False):
-    ### get latents from particles
-    if use_mlp_particle:
-        images = []
-        output_size = 64 if rgb_as_latents else 512
-        # Loop over all MLPs and generate an image for each
-        for particle_mlp in particles:
-            image = particle_mlp.generate_image(output_size)
-            images.append(image)
-        # Stack all images together
-        latents = torch.cat(images, dim=0)
-        if not rgb_as_latents:
-            latents = vae.config.scaling_factor * vae.encode(latents).latent_dist.sample()
+def get_latents(particles, vae, rgb_as_latents=False):
+    if rgb_as_latents:
+        latents = F.interpolate(particles, (64, 64), mode="bilinear", align_corners=False)
     else:
-        if rgb_as_latents:
-            latents = F.interpolate(particles, (64, 64), mode="bilinear", align_corners=False)
-        else:
-            rgb_BCHW_512 = F.interpolate(particles, (512, 512), mode="bilinear", align_corners=False)
-            # encode image into latents with vae
-            latents = vae.config.scaling_factor * vae.encode(rgb_BCHW_512).latent_dist.sample()
+        rgb_BCHW_512 = F.interpolate(particles, (512, 512), mode="bilinear", align_corners=False)
+        latents = vae.config.scaling_factor * vae.encode(rgb_BCHW_512).latent_dist.sample()
     return latents
-
 
 @torch.no_grad()
 def batch_decode_vae(latents, vae):
@@ -381,25 +366,12 @@ def batch_decode_vae(latents, vae):
 
 
 @torch.no_grad()
-def get_images(particles, vae, rgb_as_latents=False, use_mlp_particle=False):
-    ### get images from particles
-    if use_mlp_particle:
-        images = []
-        output_size = 64 if rgb_as_latents else 512
-        # Loop over all MLPs and generate an image for each
-        for particle_mlp in particles:
-            image = particle_mlp.generate_image(output_size)
-            images.append(image)
-        # Stack all images together
-        images = torch.cat(images, dim=0)
-        if rgb_as_latents:
-            images = batch_decode_vae(images, vae)
+def get_images(particles, vae, rgb_as_latents=False):
+    if rgb_as_latents:
+        latents = F.interpolate(particles, (64, 64), mode="bilinear", align_corners=False)
+        images = batch_decode_vae(latents, vae)
     else:
-        if rgb_as_latents:
-            latents = F.interpolate(particles, (64, 64), mode="bilinear", align_corners=False)
-            images = batch_decode_vae(latents, vae)
-        else:
-            images = F.interpolate(particles, (512, 512), mode="bilinear", align_corners=False)
+        images = F.interpolate(particles, (512, 512), mode="bilinear", align_corners=False)
     return images
 
 

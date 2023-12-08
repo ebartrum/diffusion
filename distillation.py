@@ -167,48 +167,25 @@ def main(cfg):
         scheduler.set_timesteps(num_train_timesteps)
 
     ### initialize particles
-    if cfg.use_mlp_particle:
-        # use siren network
-        from model_utils import Siren
-        cfg.lr = 1e-4
-        print(f'for mlp_particle, set lr to {cfg.lr}')
-        out_features = 4 if cfg.rgb_as_latents else 3
-        particles = nn.ModuleList([Siren(2, hidden_features=256, hidden_layers=3, out_features=out_features, device=device) for _ in range(cfg.batch_size)])
-    else:
-        if cfg.init_img_path:
-            # load image
-            init_image = io.read_image(cfg.init_img_path).unsqueeze(0) / 255
-            init_image = init_image * 2 - 1   #[-1,1]
-            if cfg.rgb_as_latents:
-                particles = vae.config.scaling_factor * vae.encode(init_image.to(device)).latent_dist.sample()
-            else:
-                particles = init_image.to(device)
+    if cfg.init_img_path:
+        # load image
+        init_image = io.read_image(cfg.init_img_path).unsqueeze(0) / 255
+        init_image = init_image * 2 - 1   #[-1,1]
+        if cfg.rgb_as_latents:
+            particles = vae.config.scaling_factor * vae.encode(init_image.to(device)).latent_dist.sample()
         else:
-            if cfg.rgb_as_latents:
-                particles = torch.randn((cfg.batch_size, unet.config.in_channels, cfg.height // 8, cfg.width // 8))
-            else:
-                # gaussian in rgb space --> strange artifacts
-                particles = torch.randn((cfg.batch_size, 3, cfg.height, cfg.width))
-                cfg.lr = cfg.lr * 1   # need larger lr for rgb particles
-                # ## gaussian in latent space --> not better
-                # particles = torch.randn((cfg.batch_size, unet.in_channels, cfg.height // 8, cfg.width // 8)).to(device, dtype=dtype)
-                # particles = vae.decode(particles).sample
-    particles = particles.to(device, dtype=dtype)
-    if cfg.nerf_init and cfg.rgb_as_latents and not cfg.use_mlp_particle:
-        # current only support sds and experimental for only rgb_as_latents==True
-        assert cfg.generation_mode == 'sds'
-        with torch.no_grad():
-            noise_pred = predict_noise0_diffuser(unet, particles, text_embeddings_vsd, t=999, guidance_scale=7.5, scheduler=scheduler)
-        particles = scheduler.step(noise_pred, 999, particles).pred_original_sample
-    #######################################################################################
-    ### configure optimizer and loss function
-    if cfg.use_mlp_particle:
-        # For a list of models, we want to optimize their parameters
-        particles_to_optimize = [param for mlp in particles for param in mlp.parameters() if param.requires_grad]
+            particles = init_image.to(device)
     else:
-        # For a tensor, we can optimize the tensor directly
-        particles.requires_grad = True
-        particles_to_optimize = [particles]
+        if cfg.rgb_as_latents:
+            particles = torch.randn((cfg.batch_size, unet.config.in_channels, cfg.height // 8, cfg.width // 8))
+        else:
+            particles = torch.randn((cfg.batch_size, 3, cfg.height, cfg.width))
+            cfg.lr = cfg.lr * 1   # need larger lr for rgb particles
+    particles = particles.to(device, dtype=dtype)
+
+    ### configure optimizer and loss function
+    particles.requires_grad = True
+    particles_to_optimize = [particles]
 
     total_parameters = sum(p.numel() for p in particles_to_optimize if p.requires_grad)
     print(f'Total number of trainable parameters in particles: {total_parameters}; number of particles: {cfg.batch_size}')
@@ -244,7 +221,6 @@ def main(cfg):
             unet = unet_phi.to(device)
         step = 0
         # get latent of all particles
-        assert cfg.use_mlp_particle == False
         latents = get_latents(particles, vae, cfg.rgb_as_latents)
         if cfg.half_inference:
             latents = latents.half()
@@ -289,7 +265,7 @@ def main(cfg):
         cross_attention_kwargs = {'scale': cfg.lora_scale} if (cfg.generation_mode == 'vsd' and cfg.phi_model == 'lora') else {}
         for step, chosen_t in enumerate(pbar):
             # get latent of all particles
-            latents = get_latents(particles, vae, cfg.rgb_as_latents, use_mlp_particle=cfg.use_mlp_particle)
+            latents = get_latents(particles, vae, cfg.rgb_as_latents)
             t = torch.tensor([chosen_t]).to(device)
             ######## q sample #########
             # random sample particle_num_vsd particles from latents
@@ -389,7 +365,7 @@ def main(cfg):
     if cfg.generation_mode == 't2i':
         image = image_
     else:
-        image = get_images(particles, vae, cfg.rgb_as_latents, use_mlp_particle=cfg.use_mlp_particle)
+        image = get_images(particles, vae, cfg.rgb_as_latents)
     save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/final_image_{image_name}.png')
 
     if cfg.generation_mode in ['vsd'] and cfg.save_phi_model:

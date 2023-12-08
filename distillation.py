@@ -160,7 +160,7 @@ def main(cfg):
             optimizer.zero_grad()
             grad_, noise_pred, noise_pred_phi = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
                                                     guidance_scale=cfg.guidance_scale, unet_phi=unet_phi, \
-                                                        generation_mode=cfg.generation_mode, phi_model=cfg.phi_model, \
+                                                        phi_model=cfg.phi_model, \
                                                             cross_attention_kwargs=cross_attention_kwargs, \
                                                                 multisteps=cfg.multisteps, scheduler=scheduler, lora_v=cfg.lora_vprediction, \
                                                                     half_inference=cfg.half_inference, \

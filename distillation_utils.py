@@ -242,11 +242,10 @@ def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, g
     # return out["pred_xstart"]
 
 def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_phi=None, guidance_scale=7.5, \
-                        grad_scale=1, cfg_phi=1., generation_mode='sds', phi_model='lora', \
+                        grad_scale=1, cfg_phi=1., phi_model='lora', \
                             cross_attention_kwargs={}, multisteps=1, scheduler=None, lora_v=False, \
                                 half_inference = False):
-    # ref to https://github.com/ashawkey/stable-dreamfusion/blob/main/guidance/sd_utils.py#L114
-    unet_cross_attention_kwargs = {'scale': 0} if (generation_mode == 'vsd' and phi_model == 'lora' and not lora_v) else {}
+    unet_cross_attention_kwargs = {}
     with torch.no_grad():
         # predict the noise residual with unet
         # set cross_attention_kwargs={'scale': 0} to use the pre-trained model
@@ -255,17 +254,8 @@ def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_p
         else:
             noise_pred = predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_scale=guidance_scale, cross_attention_kwargs=unet_cross_attention_kwargs, scheduler=scheduler, half_inference=half_inference)
 
-    if generation_mode == 'sds':
-        # SDS
-        grad = grad_scale * (noise_pred - noise)
-        # grad = grad_scale * (noise_pred)  # SJC
-        noise_pred_phi = noise
-    elif generation_mode == 'vsd':
-        with torch.no_grad():
-            noise_pred_phi = predict_noise0_diffuser(unet_phi, noisy_latents, text_embeddings, t, guidance_scale=cfg_phi, cross_attention_kwargs=cross_attention_kwargs, scheduler=scheduler, lora_v=lora_v, half_inference=half_inference)
-        # VSD
-        grad = grad_scale * (noise_pred - noise_pred_phi.detach())
-
+    grad = grad_scale * (noise_pred - noise)
+    noise_pred_phi = noise
     grad = torch.nan_to_num(grad)
 
     ## return grad

@@ -12,7 +12,7 @@ from datetime import datetime
 import random
 import imageio
 from pathlib import Path
-from model_utils import (
+from distillation_utils import (
             get_t_schedule,
             get_loss_weights,
             sds_vsd_grad_diffuser,

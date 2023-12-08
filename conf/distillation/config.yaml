@@ -31,7 +31,7 @@ use_t_phi: False #TODO: delete
 phi_update_step: 1 #TODO: delete
 lora_vprediction: False #TODO: delete
 lora_scale: 1.0 #TODO: delete
-use_scheduler: False
+use_scheduler: False #TODO: delete
 lr_scheduler_start_factor: 1/3 #TODO: delete
 lr_scheduler_iters: 300 #TODO: delete
 loss_weight_type: none

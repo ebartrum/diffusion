@@ -315,20 +315,6 @@ def extract_lora_diffusers(unet, device):
     ### end lora
     return unet, unet_lora_layers
 
-
-def update_curve(values, label, x_label, y_label, model_path, run_id, log_steps=None):
-    fig, ax = plt.subplots()
-    if log_steps:
-        ax.plot(log_steps, values, label=label)
-    else:
-        ax.plot(values, label=label)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
-    ax.legend()
-    plt.savefig(f'{model_path}/{label}_curve_{run_id}.png', dpi=600)
-    plt.close()
-
-
 def get_optimizer(parameters, config):
     if config.optimizer == "adam":
         optimizer = torch.optim.Adam(parameters, lr=config.lr, betas=config.betas, \

@@ -19,7 +19,6 @@ from model_utils import (
             phi_vsd_grad_diffuser,
             extract_lora_diffusers,
             predict_noise0_diffuser,
-            update_curve,
             get_images,
             get_latents,
             get_optimizer,
@@ -54,7 +53,6 @@ def main(cfg):
     random.seed(cfg.seed)  # Python random module.
     torch.manual_seed(cfg.seed)
 
-    run_id = "local"
     if os.getenv("SLURM_JOB_ID"):
         output_dir = os.path.join("out", SLURM_OUTPUT_DIR)
     else:
@@ -70,7 +68,7 @@ def main(cfg):
     ### set up logger
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    logging.basicConfig(filename=f'{output_dir}/std_{run_id}.log', filemode='w',
+    logging.basicConfig(filename=f'{output_dir}/experiment.log', filemode='w',
                         format='%(asctime)s %(levelname)s --> %(message)s',
                         level=logging.INFO,
                         datefmt='%Y-%m-%d %H:%M:%S')
@@ -390,12 +388,6 @@ def main(cfg):
                 if cfg.log_progress:
                     image_progress.append((image/2+0.5).clamp(0, 1))
                 save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/{image_name}_image_step{step}_t{t.item()}.png')
-                ave_train_loss_value = np.average(train_loss_values)
-                ave_train_loss_values.append(ave_train_loss_value) if step > 0 else None
-                logger.info(f'step: {step}; average loss: {ave_train_loss_value}')
-                update_curve(train_loss_values, 'Train_loss', 'steps', 'Loss', output_dir, run_id)
-                update_curve(ave_train_loss_values, 'Ave_Train_loss', 'steps', 'Loss', output_dir, run_id, log_steps=log_steps[1:])
-                # calculate psnr value and update curve
 
     if cfg.log_gif:
         # make gif

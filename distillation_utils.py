@@ -101,7 +101,6 @@ def get_t_schedule(num_train_timesteps, args, loss_weight=None):
     # Return the list of chosen time steps
     return chosen_ts
 
-
 def get_loss_weights(betas, args):
     num_train_timesteps = len(betas)
     betas = torch.tensor(betas) if not torch.is_tensor(betas) else betas
@@ -160,7 +159,6 @@ def get_loss_weights(betas, args):
         weights.append(loss_weight(i))
     return weights
 
-
 def predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_scale=7.5, cross_attention_kwargs={}, scheduler=None, lora_v=False, half_inference=False):
     batch_size = noisy_latents.shape[0]
     latent_model_input = torch.cat([noisy_latents] * 2)
@@ -194,7 +192,6 @@ def predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_sc
         noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
     noise_pred = noise_pred.float()
     return noise_pred
-
 
 def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, guidance_scale=7.5, cross_attention_kwargs={}, scheduler=None, steps=1, eta=0, half_inference=False):
     latents = noisy_latents
@@ -244,7 +241,6 @@ def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, g
         latents = mean_pred + nonzero_mask * sigma * noise
     # return out["pred_xstart"]
 
-
 def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_phi=None, guidance_scale=7.5, \
                         grad_scale=1, cfg_phi=1., generation_mode='sds', phi_model='lora', \
                             cross_attention_kwargs={}, multisteps=1, scheduler=None, lora_v=False, \
@@ -289,7 +285,6 @@ def phi_vsd_grad_diffuser(unet_phi, latents, noise, text_embeddings, t, cfg_phi=
     loss *= grad_scale
 
     return loss
-
 
 def extract_lora_diffusers(unet, device):
     ### ref: https://github.com/huggingface/diffusers/blob/4f14b363297cf8deac3e88a3bf31f59880ac8a96/examples/dreambooth/train_dreambooth_lora.py#L833
@@ -343,7 +338,6 @@ def get_optimizer(parameters, config):
         raise NotImplementedError(f"Optimizer {config.optimizer} not implemented.")
     return optimizer
 
-
 def get_latents(particles, vae, rgb_as_latents=False):
     if rgb_as_latents:
         latents = F.interpolate(particles, (64, 64), mode="bilinear", align_corners=False)
@@ -364,7 +358,6 @@ def batch_decode_vae(latents, vae):
     image = torch.cat(images, dim=0)
     return image
 
-
 @torch.no_grad()
 def get_images(particles, vae, rgb_as_latents=False):
     if rgb_as_latents:
@@ -373,78 +366,3 @@ def get_images(particles, vae, rgb_as_latents=False):
     else:
         images = F.interpolate(particles, (512, 512), mode="bilinear", align_corners=False)
     return images
-
-
-### siren from https://github.com/vsitzmann/siren/
-class SineLayer(nn.Module):
-    # See paper sec. 3.2, final paragraph, and supplement Sec. 1.5 for discussion of omega_0.
-
-    # If is_first=True, omega_0 is a frequency factor which simply multiplies the activations before the
-    # nonlinearity. Different signals may require different omega_0 in the first layer - this is a
-    # hyperparameter.
-
-    # If is_first=False, then the weights will be divided by omega_0 so as to keep the magnitude of
-    # activations constant, but boost gradients to the weight matrix (see supplement Sec. 1.5)
-
-    def __init__(self, in_features, out_features, bias=True,
-                 is_first=False, omega_0=30):
-        super().__init__()
-        self.omega_0 = omega_0
-        self.is_first = is_first
-        self.in_features = in_features
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
-        self.init_weights()
-
-    def init_weights(self):
-        with torch.no_grad():
-            if self.is_first:
-                self.linear.weight.uniform_(-1 / self.in_features,
-                                             1 / self.in_features)
-            else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0,
-                                             np.sqrt(6 / self.in_features) / self.omega_0)
-    def forward(self, input):
-        return torch.sin(self.omega_0 * self.linear(input))
-
-
-class Siren(nn.Module):
-    def __init__(self, in_features, hidden_features, hidden_layers, out_features, device, \
-                 outermost_linear=True, first_omega_0=30, hidden_omega_0=30.):
-        super().__init__()
-
-        self.net = []
-        self.net.append(SineLayer(in_features, hidden_features,
-                                  is_first=True, omega_0=first_omega_0))
-        for i in range(hidden_layers):
-            self.net.append(SineLayer(hidden_features, hidden_features,
-                                      is_first=False, omega_0=hidden_omega_0))
-        if outermost_linear:
-            final_linear = nn.Linear(hidden_features, out_features)
-            with torch.no_grad():
-                # final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / hidden_omega_0,
-                #                               np.sqrt(6 / hidden_features) / hidden_omega_0)
-                final_linear.weight.normal_(0, 1 / hidden_features)
-            self.net.append(final_linear)
-        else:
-            self.net.append(SineLayer(hidden_features, out_features,
-                                      is_first=False, omega_0=hidden_omega_0))
-        self.net = nn.Sequential(*self.net)
-        self.device = device
-        self.out_features = out_features
-
-    def forward(self, coords):
-        # coords = coords.clone().detach().requires_grad_(True) # allows to take derivative w.r.t. input
-        output = self.net(coords)
-        return output #, coords
-
-    def generate_image(self, img_size=64):
-        # Generate an input grid coordinates in a range of -1 to 1.
-        grid = torch.Tensor([[[2*(x / (img_size - 1)) - 1, 2*(y / (img_size - 1)) - 1] for y in range(img_size)] for x in range(img_size)])
-        grid = grid.view(-1, 2)  # Reshape to (img_size*img_size, 2)
-        grid = grid.to(self.device)
-        rgb_values = self.forward(grid)
-        rgb_values = torch.tanh(rgb_values)     # [-1, 1]
-        # Reshape to an image
-        rgb_values = rgb_values.view(1, img_size, img_size, self.out_features)
-        image = rgb_values.permute(0, 3, 1, 2)
-        return image

@@ -248,7 +248,6 @@ def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_p
     unet_cross_attention_kwargs = {}
     with torch.no_grad():
         # predict the noise residual with unet
-        # set cross_attention_kwargs={'scale': 0} to use the pre-trained model
         if multisteps > 1:
             noise_pred = predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, guidance_scale=guidance_scale, cross_attention_kwargs=unet_cross_attention_kwargs, scheduler=scheduler, steps=multisteps, eta=0., half_inference=half_inference)
         else:
@@ -258,7 +257,6 @@ def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_p
     noise_pred_phi = noise
     grad = torch.nan_to_num(grad)
 
-    ## return grad
     return grad, noise_pred.detach().clone(), noise_pred_phi.detach().clone()
 
 def phi_vsd_grad_diffuser(unet_phi, latents, noise, text_embeddings, t, cfg_phi=1., grad_scale=1, cross_attention_kwargs={}, scheduler=None, lora_v=False, half_inference=False):

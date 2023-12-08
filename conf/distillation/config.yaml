@@ -7,7 +7,6 @@ half_inference: False
 save_x0: False
 save_phi_model: False
 load_phi_model_path:
-init_img_path:
 num_steps: 1000
 t_end: 980
 t_start: 20

@@ -167,20 +167,12 @@ def main(cfg):
         scheduler.set_timesteps(num_train_timesteps)
 
     ### initialize particles
-    if cfg.init_img_path:
-        # load image
-        init_image = io.read_image(cfg.init_img_path).unsqueeze(0) / 255
-        init_image = init_image * 2 - 1   #[-1,1]
-        if cfg.rgb_as_latents:
-            particles = vae.config.scaling_factor * vae.encode(init_image.to(device)).latent_dist.sample()
-        else:
-            particles = init_image.to(device)
+    if cfg.rgb_as_latents:
+        particles = torch.randn((cfg.batch_size, unet.config.in_channels,
+             cfg.height // 8, cfg.width // 8))
     else:
-        if cfg.rgb_as_latents:
-            particles = torch.randn((cfg.batch_size, unet.config.in_channels, cfg.height // 8, cfg.width // 8))
-        else:
-            particles = torch.randn((cfg.batch_size, 3, cfg.height, cfg.width))
-            cfg.lr = cfg.lr * 1   # need larger lr for rgb particles
+        particles = torch.randn((cfg.batch_size, 3, cfg.height, cfg.width))
+        cfg.lr = cfg.lr * 1   # need larger lr for rgb particles
     particles = particles.to(device, dtype=dtype)
 
     ### configure optimizer and loss function

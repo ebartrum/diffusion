@@ -230,12 +230,11 @@ def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, g
 def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, guidance_scale=7.5, \
                             multisteps=1, scheduler=None,
                                 half_inference = False):
-    unet_cross_attention_kwargs = {}
     with torch.no_grad():
         if multisteps > 1:
-            noise_pred = predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, guidance_scale=guidance_scale, cross_attention_kwargs=unet_cross_attention_kwargs, scheduler=scheduler, steps=multisteps, eta=0., half_inference=half_inference)
+            noise_pred = predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, guidance_scale=guidance_scale, scheduler=scheduler, steps=multisteps, eta=0., half_inference=half_inference)
         else:
-            noise_pred = predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_scale=guidance_scale, cross_attention_kwargs=unet_cross_attention_kwargs, scheduler=scheduler, half_inference=half_inference)
+            noise_pred = predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_scale=guidance_scale, scheduler=scheduler, half_inference=half_inference)
 
     grad = noise_pred - noise
     grad = torch.nan_to_num(grad)

@@ -4,7 +4,7 @@ log_steps: 50
 log_progress: False
 log_gif: True
 half_inference: False
-save_x0: False
+save_x0: False #TODO: rename
 save_phi_model: False #TODO: delete
 load_phi_model_path: #TODO: delete
 num_steps: 1000

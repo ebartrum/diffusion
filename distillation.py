@@ -185,9 +185,6 @@ def main(cfg):
             phi_optimizer = torch.optim.AdamW([{"params": phi_params, "lr": cfg.phi_lr}], lr=cfg.phi_lr)
             print(f'number of trainable parameters of phi model in optimizer: {sum(p.numel() for p in phi_params if p.requires_grad)}')
     optimizer = get_optimizer(particles_to_optimize, cfg)
-    if cfg.use_scheduler:
-        lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, \
-            start_factor=cfg.lr_scheduler_start_factor, total_iters=cfg.lr_scheduler_iters)
 
     #######################################################################################
     ############################# Main optimization loop ##############################
@@ -278,9 +275,6 @@ def main(cfg):
             loss = 0.5 * F.mse_loss(latents_vsd, target, reduction="mean") / cfg.batch_size
             loss.backward()
             optimizer.step()
-            if cfg.use_scheduler:
-                lr_scheduler.step(loss)
-
             torch.cuda.empty_cache()
             ######## Do the gradient for unet_phi!!! #########
             if cfg.generation_mode == 'vsd':

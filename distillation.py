@@ -34,10 +34,8 @@ from utils import SLURM_OUTPUT_DIR
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
 def main(cfg):
-    # for sds and t2i, use only cfg.batch_size
-    if cfg.generation_mode in ['t2i', 'sds']:
-        cfg.particle_num_vsd = cfg.batch_size
-        cfg.particle_num_phi = cfg.batch_size
+    cfg.particle_num_vsd = cfg.batch_size
+    cfg.particle_num_phi = cfg.batch_size
     assert (cfg.batch_size >= cfg.particle_num_vsd) and (cfg.batch_size >= cfg.particle_num_phi)
     if cfg.batch_size > cfg.particle_num_vsd:
         print(f'use multiple ({cfg.batch_size}) particles!! Will get inconsistent x0 recorded')
@@ -93,10 +91,8 @@ def main(cfg):
     scheduler.betas = scheduler.betas.to(device)
     scheduler.alphas = scheduler.alphas.to(device)
     scheduler.alphas_cumprod = scheduler.alphas_cumprod.to(device)
-
-    if cfg.generation_mode == 'sds':
-        unet_phi = None
-        vae_phi = vae
+    unet_phi = None
+    vae_phi = vae
 
     ### get text embedding
     text_input = tokenizer([cfg.prompt] * max(cfg.particle_num_vsd,cfg.particle_num_phi), padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt")
@@ -144,61 +140,60 @@ def main(cfg):
     chosen_ts = get_t_schedule(num_train_timesteps, cfg, loss_weights)
     pbar = tqdm(chosen_ts)
 
-    if cfg.generation_mode in ['sds', 'vsd']:
-        for step, chosen_t in enumerate(pbar):
-            # get latent of all particles
-            latents = get_latents(particles, vae, cfg.rgb_as_latents)
-            t = torch.tensor([chosen_t]).to(device)
-            ######## q sample #########
-            # random sample particle_num_vsd particles from latents
-            indices = torch.randperm(latents.size(0))
-            latents_vsd = latents[indices[:cfg.particle_num_vsd]]
-            noise = torch.randn_like(latents_vsd)
-            noisy_latents = scheduler.add_noise(latents_vsd, noise, t)
-            ######## Do the gradient for latents!!! #########
-            optimizer.zero_grad()
-            grad_, noise_pred, noise_pred_phi = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
-                                                    guidance_scale=cfg.guidance_scale, unet_phi=unet_phi, \
-                                                        phi_model=cfg.phi_model, \
-                                                                multisteps=cfg.multisteps, scheduler=scheduler, lora_v=cfg.lora_vprediction, \
-                                                                    half_inference=cfg.half_inference, \
-                                                                        cfg_phi=cfg.cfg_phi, grad_scale=cfg.grad_scale)
-            ## weighting
-            grad_ *= loss_weights[int(t)]
-            target = (latents_vsd - grad_).detach()
-            loss = 0.5 * F.mse_loss(latents_vsd, target, reduction="mean") / cfg.batch_size
-            loss.backward()
-            optimizer.step()
-            torch.cuda.empty_cache()
+    for step, chosen_t in enumerate(pbar):
+        # get latent of all particles
+        latents = get_latents(particles, vae, cfg.rgb_as_latents)
+        t = torch.tensor([chosen_t]).to(device)
+        ######## q sample #########
+        # random sample particle_num_vsd particles from latents
+        indices = torch.randperm(latents.size(0))
+        latents_vsd = latents[indices[:cfg.particle_num_vsd]]
+        noise = torch.randn_like(latents_vsd)
+        noisy_latents = scheduler.add_noise(latents_vsd, noise, t)
+        ######## Do the gradient for latents!!! #########
+        optimizer.zero_grad()
+        grad_, noise_pred, noise_pred_phi = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
+                                                guidance_scale=cfg.guidance_scale, unet_phi=unet_phi, \
+                                                    phi_model=cfg.phi_model, \
+                                                            multisteps=cfg.multisteps, scheduler=scheduler, lora_v=cfg.lora_vprediction, \
+                                                                half_inference=cfg.half_inference, \
+                                                                    cfg_phi=cfg.cfg_phi, grad_scale=cfg.grad_scale)
+        ## weighting
+        grad_ *= loss_weights[int(t)]
+        target = (latents_vsd - grad_).detach()
+        loss = 0.5 * F.mse_loss(latents_vsd, target, reduction="mean") / cfg.batch_size
+        loss.backward()
+        optimizer.step()
+        torch.cuda.empty_cache()
 
-            train_loss_values.append(loss.item())
-            pbar.set_description(f'Loss: {loss.item():.6f}, sampled t : {t.item()}')
+        train_loss_values.append(loss.item())
+        pbar.set_description(f'Loss: {loss.item():.6f}, sampled t : {t.item()}')
 
-            optimizer.zero_grad()
+        optimizer.zero_grad()
 
-            ######## Evaluation and log metric #########
-            if cfg.log_steps and (step % cfg.log_steps == 0 or step == (cfg.num_steps-1)):
-                log_steps.append(step)
-                # save current img_tensor
-                # scale and decode the image latents with vae
-                tmp_latents = 1 / vae.config.scaling_factor * latents_vsd.clone().detach()
+        ######## Evaluation and log metric #########
+        if cfg.log_steps and (step % cfg.log_steps == 0 or step == (cfg.num_steps-1)):
+            log_steps.append(step)
+            # save current img_tensor
+            # scale and decode the image latents with vae
+            tmp_latents = 1 / vae.config.scaling_factor * latents_vsd.clone().detach()
+            if cfg.save_x0:
+                # compute the predicted clean sample x_0
+                pred_latents = scheduler.step(noise_pred, t, noisy_latents).pred_original_sample.to(dtype).clone().detach()
+            with torch.no_grad():
+                if cfg.half_inference:
+                    tmp_latents = tmp_latents.half()
+                image_ = vae.decode(tmp_latents).sample.to(torch.float32)
                 if cfg.save_x0:
-                    # compute the predicted clean sample x_0
-                    pred_latents = scheduler.step(noise_pred, t, noisy_latents).pred_original_sample.to(dtype).clone().detach()
-                with torch.no_grad():
                     if cfg.half_inference:
-                        tmp_latents = tmp_latents.half()
-                    image_ = vae.decode(tmp_latents).sample.to(torch.float32)
-                    if cfg.save_x0:
-                        if cfg.half_inference:
-                            pred_latents = pred_latents.half()
-                        image_x0 = vae.decode(pred_latents / vae.config.scaling_factor).sample.to(torch.float32)
-                        image = torch.cat((image_,image_x0), dim=2)
-                    else:
-                        image = image_
-                if cfg.log_progress:
-                    image_progress.append((image/2+0.5).clamp(0, 1))
-                save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/step{str(step).zfill(len(str(cfg.num_steps)))}_t{t.item()}.png')
+                        pred_latents = pred_latents.half()
+                    image_x0 = vae.decode(pred_latents / vae.config.scaling_factor).sample.to(torch.float32)
+                    image = torch.cat((image_,image_x0), dim=2)
+                else:
+                    image = image_
+            if cfg.log_progress:
+                image_progress.append((image/2+0.5).clamp(0, 1))
+            save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/step{str(step).zfill(len(str(cfg.num_steps)))}_t{t.item()}.png')
 
     if cfg.log_progress:
         writer = imageio.get_writer(f'{output_dir}/train_progress.mp4')

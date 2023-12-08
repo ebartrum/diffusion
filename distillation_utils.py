@@ -159,18 +159,11 @@ def get_loss_weights(betas, args):
         weights.append(loss_weight(i))
     return weights
 
-def predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_scale=7.5, cross_attention_kwargs={}, scheduler=None, lora_v=False, half_inference=False):
+def predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_scale=7.5, cross_attention_kwargs={}, scheduler=None, half_inference=False):
     batch_size = noisy_latents.shape[0]
     latent_model_input = torch.cat([noisy_latents] * 2)
     latent_model_input = scheduler.scale_model_input(latent_model_input, t)
 
-    if lora_v:
-        # https://github.com/threestudio-project/threestudio/blob/77de7d75c34e29a492f2dda498c65d2fd4a767ff/threestudio/models/guidance/stable_diffusion_vsd_guidance.py#L512
-        alphas_cumprod = scheduler.alphas_cumprod.to(
-            device=noisy_latents.device, dtype=noisy_latents.dtype
-        )
-        alpha_t = alphas_cumprod[t] ** 0.5
-        sigma_t = (1 - alphas_cumprod[t]) ** 0.5
     # Convert inputs to half precision
     if half_inference:
         noisy_latents = noisy_latents.clone().half()
@@ -178,15 +171,10 @@ def predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_sc
         latent_model_input = latent_model_input.clone().half()
     if guidance_scale == 1.:
         noise_pred = unet(noisy_latents, t, encoder_hidden_states=text_embeddings[batch_size:], cross_attention_kwargs=cross_attention_kwargs).sample
-        if lora_v:
-            # assume the output of unet is v-pred, convert to noise-pred now
-            noise_pred = noisy_latents * sigma_t.view(-1, 1, 1, 1) + noise_pred * alpha_t.view(-1, 1, 1, 1)
     else:
         # predict the noise residual
         noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, cross_attention_kwargs=cross_attention_kwargs).sample
-        if lora_v:
-            # assume the output of unet is v-pred, convert to noise-pred now
-            noise_pred = latent_model_input * torch.cat([sigma_t] * 2, dim=0).view(-1, 1, 1, 1) + noise_pred * torch.cat([alpha_t] * 2, dim=0).view(-1, 1, 1, 1)
+
         # perform guidance
         noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
         noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
@@ -240,11 +228,10 @@ def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, g
         latents = mean_pred + nonzero_mask * sigma * noise
 
 def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, guidance_scale=7.5, \
-                            multisteps=1, scheduler=None, lora_v=False, \
+                            multisteps=1, scheduler=None,
                                 half_inference = False):
     unet_cross_attention_kwargs = {}
     with torch.no_grad():
-        # predict the noise residual with unet
         if multisteps > 1:
             noise_pred = predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, guidance_scale=guidance_scale, cross_attention_kwargs=unet_cross_attention_kwargs, scheduler=scheduler, steps=multisteps, eta=0., half_inference=half_inference)
         else:
@@ -254,41 +241,6 @@ def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, guidan
     grad = torch.nan_to_num(grad)
 
     return grad, noise_pred.detach().clone()
-
-def extract_lora_diffusers(unet, device):
-    ### ref: https://github.com/huggingface/diffusers/blob/4f14b363297cf8deac3e88a3bf31f59880ac8a96/examples/dreambooth/train_dreambooth_lora.py#L833
-    ### begin lora
-    # Set correct lora layers
-    unet_lora_attn_procs = {}
-    for name, attn_processor in unet.attn_processors.items():
-        cross_attention_dim = None if name.endswith("attn1.processor") else unet.config.cross_attention_dim
-        if name.startswith("mid_block"):
-            hidden_size = unet.config.block_out_channels[-1]
-        elif name.startswith("up_blocks"):
-            block_id = int(name[len("up_blocks.")])
-            hidden_size = list(reversed(unet.config.block_out_channels))[block_id]
-        elif name.startswith("down_blocks"):
-            block_id = int(name[len("down_blocks.")])
-            hidden_size = unet.config.block_out_channels[block_id]
-
-        if isinstance(attn_processor, (AttnAddedKVProcessor, SlicedAttnAddedKVProcessor, AttnAddedKVProcessor2_0)):
-            lora_attn_processor_class = LoRAAttnAddedKVProcessor
-        else:
-            lora_attn_processor_class = LoRAAttnProcessor
-
-        unet_lora_attn_procs[name] = lora_attn_processor_class(
-            hidden_size=hidden_size, cross_attention_dim=cross_attention_dim
-        ).to(device)
-    unet.set_attn_processor(unet_lora_attn_procs)
-    unet_lora_layers = AttnProcsLayers(unet.attn_processors)
-
-    # self.unet.requires_grad_(True)
-    unet.requires_grad_(False)
-    for param in unet_lora_layers.parameters():
-        param.requires_grad_(True)
-    # self.params_to_optimize = unet_lora_layers.parameters()
-    ### end lora
-    return unet, unet_lora_layers
 
 def get_latents(particles, vae, rgb_as_latents=False):
     if rgb_as_latents:

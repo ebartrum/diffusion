@@ -16,8 +16,6 @@ from distillation_utils import (
             get_t_schedule,
             get_loss_weights,
             sds_vsd_grad_diffuser,
-            phi_vsd_grad_diffuser,
-            extract_lora_diffusers,
             predict_noise0_diffuser,
             get_images,
             get_latents,
@@ -154,7 +152,7 @@ def main(cfg):
         optimizer.zero_grad()
         grad_, noise_pred = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
                                                 guidance_scale=cfg.guidance_scale,
-                                                            multisteps=cfg.multisteps, scheduler=scheduler, lora_v=cfg.lora_vprediction, \
+                                                            multisteps=cfg.multisteps, scheduler=scheduler,
                                                                 half_inference=cfg.half_inference)
         ## weighting
         grad_ *= loss_weights[int(t)]

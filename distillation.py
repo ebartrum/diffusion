@@ -200,11 +200,13 @@ def main(cfg):
                     image_progress.append((image/2+0.5).clamp(0, 1))
                 save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/step{str(step).zfill(len(str(cfg.num_steps)))}_t{t.item()}.png')
 
-    if cfg.log_gif:
+    if cfg.log_progress:
+        writer = imageio.get_writer(f'{output_dir}/train_progress.mp4')
         images = sorted(Path(output_dir).glob(f"step*.png"))
         images = [imageio.imread(image) for image in images]
-        imageio.mimsave(f'{output_dir}/train_progress.gif', images, duration=0.3)
-    if cfg.log_progress and cfg.batch_size == 1:
+        for img in images:
+            writer.append_data(img)
+        writer.close()
         concatenated_images = torch.cat(image_progress, dim=0)
         save_image(concatenated_images, f'{output_dir}/{image_name}_prgressive.png')
 

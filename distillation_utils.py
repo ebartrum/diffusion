@@ -206,7 +206,6 @@ def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, g
         # Generate a list of indices
         indices = [int((steps - i) * step_size) for i in range(steps)]
         if indices[0] != t_start:
-            # indices.insert(0, t_start)    # add start point
             indices[0] = t_start    # replace start point
     else:
         indices = [int((t_start - i)) for i in range(t_start)]
@@ -239,7 +238,6 @@ def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, g
             (t != 0).float().view(-1, *([1] * (len(latents.shape) - 1)))
         )  # no noise when t == 0
         latents = mean_pred + nonzero_mask * sigma * noise
-    # return out["pred_xstart"]
 
 def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_phi=None, guidance_scale=7.5, \
                         grad_scale=1, cfg_phi=1., phi_model='lora', \

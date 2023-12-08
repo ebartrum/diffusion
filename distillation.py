@@ -94,50 +94,7 @@ def main(cfg):
     scheduler.alphas = scheduler.alphas.to(device)
     scheduler.alphas_cumprod = scheduler.alphas_cumprod.to(device)
 
-    if cfg.generation_mode == 'vsd':
-        if cfg.phi_model == 'lora':
-            if cfg.lora_vprediction:
-                assert cfg.model_path == 'stabilityai/stable-diffusion-2-1-base'
-                vae_phi = AutoencoderKL.from_pretrained('stabilityai/stable-diffusion-2-1', subfolder="vae", torch_dtype=dtype).to(device)
-                unet_phi = UNet2DConditionModel.from_pretrained('stabilityai/stable-diffusion-2-1', subfolder="unet", torch_dtype=dtype).to(device)
-                vae_phi.requires_grad_(False)
-                unet_phi, unet_lora_layers = extract_lora_diffusers(unet_phi, device)
-            else:
-                vae_phi = vae
-                ### unet_phi is the same instance as unet that has been modified in-place
-                unet_phi, unet_lora_layers = extract_lora_diffusers(unet, device)
-            phi_params = list(unet_lora_layers.parameters())
-            if cfg.load_phi_model_path:
-                unet_phi.load_attn_procs(cfg.load_phi_model_path)
-                unet_phi = unet_phi.to(device)
-        elif cfg.phi_model == 'unet_simple':
-            # initialize simple unet, same input/output as (pre-trained) unet
-            ### IMPORTANT: need the proper (wide) channel numbers
-            channels = 4 if cfg.rgb_as_latents else 3
-            unet_phi = UNet2DConditionModel(
-                                        sample_size=64,
-                                        in_channels=channels,
-                                        out_channels=channels,
-                                        layers_per_block=1,
-                                        block_out_channels=(64,128,256),
-                                        down_block_types=(
-                                            "CrossAttnDownBlock2D",
-                                            "CrossAttnDownBlock2D",
-                                            "DownBlock2D",
-                                        ),
-                                        up_block_types=(
-                                            "UpBlock2D",
-                                            "CrossAttnUpBlock2D",
-                                            "CrossAttnUpBlock2D",
-                                        ),
-                                        cross_attention_dim=unet.config.cross_attention_dim,
-                                        ).to(dtype)
-            if cfg.load_phi_model_path:
-                unet_phi = unet_phi.from_pretrained(cfg.load_phi_model_path)
-            unet_phi = unet_phi.to(device)
-            phi_params = list(unet_phi.parameters())
-            vae_phi = vae
-    elif cfg.generation_mode == 'sds':
+    if cfg.generation_mode == 'sds':
         unet_phi = None
         vae_phi = vae
 
@@ -157,12 +114,7 @@ def main(cfg):
     ### weight loss
     num_train_timesteps = len(scheduler.betas)
     loss_weights = get_loss_weights(scheduler.betas, cfg)
-
-    ### scheduler set timesteps
-    if cfg.generation_mode == 't2i':
-        scheduler.set_timesteps(cfg.num_steps)
-    else:
-        scheduler.set_timesteps(num_train_timesteps)
+    scheduler.set_timesteps(num_train_timesteps)
 
     ### initialize particles
     if cfg.rgb_as_latents:
@@ -177,11 +129,6 @@ def main(cfg):
 
     total_parameters = sum(p.numel() for p in particles_to_optimize if p.requires_grad)
     print(f'Total number of trainable parameters in particles: {total_parameters}; number of particles: {cfg.batch_size}')
-    ### Initialize optimizer & scheduler
-    if cfg.generation_mode == 'vsd':
-        if cfg.phi_model in ['lora', 'unet_simple']:
-            phi_optimizer = torch.optim.AdamW([{"params": phi_params, "lr": cfg.phi_lr}], lr=cfg.phi_lr)
-            print(f'number of trainable parameters of phi model in optimizer: {sum(p.numel() for p in phi_params if p.requires_grad)}')
     optimizer = torch.optim.Adam(particles_to_optimize, lr=cfg.lr)
 
     #######################################################################################
@@ -196,58 +143,9 @@ def main(cfg):
     ######## t schedule #########
     chosen_ts = get_t_schedule(num_train_timesteps, cfg, loss_weights)
     pbar = tqdm(chosen_ts)
-    ### regular sd text to image generation
-    if cfg.generation_mode == 't2i':
-        if cfg.phi_model == 'lora' and cfg.load_phi_model_path:
-            ### unet_phi is the same instance as unet that has been modified in-place
-            unet_phi, unet_lora_layers = extract_lora_diffusers(unet, device)
-            phi_params = list(unet_lora_layers.parameters())
-            unet_phi.load_attn_procs(cfg.load_phi_model_path)
-            unet = unet_phi.to(device)
-        step = 0
-        # get latent of all particles
-        latents = get_latents(particles, vae, cfg.rgb_as_latents)
-        if cfg.half_inference:
-            latents = latents.half()
-            text_embeddings_vsd = text_embeddings_vsd.half()
-        for t in tqdm(scheduler.timesteps):
-            # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
-            latent_model_input = torch.cat([latents] * 2)
-            latent_model_input = scheduler.scale_model_input(latent_model_input, t)
-            latent_noisy = latents
-            # predict the noise residual
-            with torch.no_grad():
-                noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings_vsd).sample
-            # perform guidance
-            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-            noise_pred = noise_pred_uncond + cfg.guidance_scale * (noise_pred_text - noise_pred_uncond)
-            # compute the previous noisy sample x_t -> x_t-1
-            latents = scheduler.step(noise_pred, t, latents).prev_sample
-            ######## Evaluation and log metric #########
-            if cfg.log_steps and (step % cfg.log_steps == 0 or step == (cfg.num_steps-1)):
-                # save current img_tensor
-                # scale and decode the image latents with vae
-                tmp_latents = 1 / vae.config.scaling_factor * latents.clone().detach()
-                if cfg.save_x0:
-                    # compute the predicted clean sample x_0
-                    pred_latents = scheduler.step(noise_pred, t, latent_noisy).pred_original_sample.to(dtype).clone().detach()
-                with torch.no_grad():
-                    if cfg.half_inference:
-                        tmp_latents = tmp_latents.half()
-                    image_ = vae.decode(tmp_latents).sample.to(torch.float32)
-                    if cfg.save_x0:
-                        if cfg.half_inference:
-                            pred_latents = pred_latents.half()
-                        image_x0 = vae.decode(pred_latents / vae.config.scaling_factor).sample.to(torch.float32)
-                        image = torch.cat((image_,image_x0), dim=2)
-                    else:
-                        image = image_
-                if cfg.log_progress:
-                    image_progress.append((image/2+0.5).clamp(0, 1))
-            step += 1
-    ### sds text to image generation
-    elif cfg.generation_mode in ['sds', 'vsd']:
-        cross_attention_kwargs = {'scale': cfg.lora_scale} if (cfg.generation_mode == 'vsd' and cfg.phi_model == 'lora') else {}
+
+    if cfg.generation_mode in ['sds', 'vsd']:
+        cross_attention_kwargs = {}
         for step, chosen_t in enumerate(pbar):
             # get latent of all particles
             latents = get_latents(particles, vae, cfg.rgb_as_latents)
@@ -274,36 +172,12 @@ def main(cfg):
             loss.backward()
             optimizer.step()
             torch.cuda.empty_cache()
-            ######## Do the gradient for unet_phi!!! #########
-            if cfg.generation_mode == 'vsd':
-                ## update the unet (phi) model
-                for _ in range(cfg.phi_update_step):
-                    phi_optimizer.zero_grad()
-                    if cfg.use_t_phi:
-                        # different t for phi finetuning
-                        # t_phi = np.random.choice(chosen_ts, 1, replace=True)[0]
-                        t_phi = np.random.choice(list(range(num_train_timesteps)), 1, replace=True)[0]
-                        t_phi = torch.tensor([t_phi]).to(device)
-                    else:
-                        t_phi = t
-                    # random sample particle_num_phi particles from latents
-                    indices = torch.randperm(latents.size(0))
-                    latents_phi = latents[indices[:cfg.particle_num_phi]]
-                    noise_phi = torch.randn_like(latents_phi)
-                    noisy_latents_phi = scheduler.add_noise(latents_phi, noise_phi, t_phi)
-                    loss_phi = phi_vsd_grad_diffuser(unet_phi, noisy_latents_phi.detach(), noise_phi, text_embeddings_phi, t_phi, \
-                                                     cross_attention_kwargs=cross_attention_kwargs, scheduler=scheduler, \
-                                                        lora_v=cfg.lora_vprediction, half_inference=cfg.half_inference)
 
-                    loss_phi.backward()
-                    phi_optimizer.step()
-
-            ### Store loss and step
             train_loss_values.append(loss.item())
-            ### update pbar
             pbar.set_description(f'Loss: {loss.item():.6f}, sampled t : {t.item()}')
 
             optimizer.zero_grad()
+
             ######## Evaluation and log metric #########
             if cfg.log_steps and (step % cfg.log_steps == 0 or step == (cfg.num_steps-1)):
                 log_steps.append(step)
@@ -313,8 +187,6 @@ def main(cfg):
                 if cfg.save_x0:
                     # compute the predicted clean sample x_0
                     pred_latents = scheduler.step(noise_pred, t, noisy_latents).pred_original_sample.to(dtype).clone().detach()
-                    if cfg.generation_mode == 'vsd':
-                        pred_latents_phi = scheduler.step(noise_pred_phi, t, noisy_latents).pred_original_sample.to(dtype).clone().detach()
                 with torch.no_grad():
                     if cfg.half_inference:
                         tmp_latents = tmp_latents.half()
@@ -323,13 +195,7 @@ def main(cfg):
                         if cfg.half_inference:
                             pred_latents = pred_latents.half()
                         image_x0 = vae.decode(pred_latents / vae.config.scaling_factor).sample.to(torch.float32)
-                        if cfg.generation_mode == 'vsd':
-                            if cfg.half_inference:
-                                pred_latents_phi = pred_latents_phi.half()
-                            image_x0_phi = vae_phi.decode(pred_latents_phi / vae.config.scaling_factor).sample.to(torch.float32)
-                            image = torch.cat((image_,image_x0,image_x0_phi), dim=2)
-                        else:
-                            image = torch.cat((image_,image_x0), dim=2)
+                        image = torch.cat((image_,image_x0), dim=2)
                     else:
                         image = image_
                 if cfg.log_progress:
@@ -343,18 +209,9 @@ def main(cfg):
     if cfg.log_progress and cfg.batch_size == 1:
         concatenated_images = torch.cat(image_progress, dim=0)
         save_image(concatenated_images, f'{output_dir}/{image_name}_prgressive.png')
-    # save final image
-    if cfg.generation_mode == 't2i':
-        image = image_
-    else:
-        image = get_images(particles, vae, cfg.rgb_as_latents)
-    save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/final_image_{image_name}.png')
 
-    if cfg.generation_mode in ['vsd'] and cfg.save_phi_model:
-        if cfg.phi_model in ['lora']:
-            unet_phi.save_attn_procs(save_directory=f'{output_dir}')
-        elif cfg.phi_model in ['unet_simple']:
-            unet_phi.save_pretrained(save_directory=f'{output_dir}')
+    image = get_images(particles, vae, cfg.rgb_as_latents)
+    save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/final_image.png')
 
 #########################################################################################
 if __name__ == "__main__":

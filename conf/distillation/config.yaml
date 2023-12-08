@@ -5,8 +5,8 @@ log_progress: False
 log_gif: True
 half_inference: False
 save_x0: False
-save_phi_model: False
-load_phi_model_path:
+save_phi_model: False #TODO: delete
+load_phi_model_path: #TODO: delete
 num_steps: 1000
 t_end: 980
 t_start: 20
@@ -14,28 +14,28 @@ multisteps: 1
 t_schedule: descend
 height: 512
 width: 512
-rgb_as_latents: True
-generation_mode: sds
-batch_size: 1
-particle_num_vsd: 1
-particle_num_phi: 1
+rgb_as_latents: True #TODO: delete
+generation_mode: sds #TODO: delete
+batch_size: 1 #TODO: delete
+particle_num_vsd: 1 #TODO: delete
+particle_num_phi: 1 #TODO: delete
 guidance_scale: 7.5
-cfg_phi: 1.
-optimizer: adam
+cfg_phi: 1. #TODO: delete
+optimizer: adam #TODO: delete
 lr: 0.01
 betas: [0.9, 0.999]
 weight_decay: 0.0
-phi_lr: 0.0001
-phi_model: lora
-use_t_phi: False
-phi_update_step: 1
-lora_vprediction: False
-lora_scale: 1.0
+phi_lr: 0.0001 #TODO: delete
+phi_model: lora #TODO: delete
+use_t_phi: False #TODO: delete
+phi_update_step: 1 #TODO: delete
+lora_vprediction: False #TODO: delete
+lora_scale: 1.0 #TODO: delete
 use_scheduler: False
-lr_scheduler_start_factor: 1/3
-lr_scheduler_iters: 300
+lr_scheduler_start_factor: 1/3 #TODO: delete
+lr_scheduler_iters: 300 #TODO: delete
 loss_weight_type: none
-grad_scale: 1.
+grad_scale: 1. #TODO: delete
 local_files_only: True
 model_id: stabilityai/stable-diffusion-2-1-base
 model_dir: ./models

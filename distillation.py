@@ -182,7 +182,7 @@ def main(cfg):
         if cfg.phi_model in ['lora', 'unet_simple']:
             phi_optimizer = torch.optim.AdamW([{"params": phi_params, "lr": cfg.phi_lr}], lr=cfg.phi_lr)
             print(f'number of trainable parameters of phi model in optimizer: {sum(p.numel() for p in phi_params if p.requires_grad)}')
-    optimizer = torch.optim.Adam(particles_to_optimize, lr=cfg.lr, betas=cfg.betas, weight_decay=cfg.weight_decay)
+    optimizer = torch.optim.Adam(particles_to_optimize, lr=cfg.lr)
 
     #######################################################################################
     ############################# Main optimization loop ##############################

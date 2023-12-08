@@ -21,7 +21,6 @@ particle_num_vsd: 1 #TODO: delete
 particle_num_phi: 1 #TODO: delete
 guidance_scale: 7.5
 cfg_phi: 1. #TODO: delete
-optimizer: adam #TODO: delete
 lr: 0.01
 betas: [0.9, 0.999]
 weight_decay: 0.0

@@ -23,7 +23,6 @@ from distillation_utils import (
             get_latents,
             setup_logger
             )
-import shutil
 from transformers import CLIPTextModel, CLIPTokenizer
 from transformers import logging as transformers_logging
 from diffusers import AutoencoderKL, UNet2DConditionModel

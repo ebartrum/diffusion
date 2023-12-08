@@ -22,9 +22,9 @@ from distillation_utils import (
             get_images,
             get_latents,
             get_optimizer,
+            setup_logger
             )
 import shutil
-import logging
 from transformers import CLIPTextModel, CLIPTokenizer
 from transformers import logging as transformers_logging
 from diffusers import AutoencoderKL, UNet2DConditionModel
@@ -36,7 +36,6 @@ from utils import SLURM_OUTPUT_DIR
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
 def main(cfg):
-
     # for sds and t2i, use only cfg.batch_size
     if cfg.generation_mode in ['t2i', 'sds']:
         cfg.particle_num_vsd = cfg.batch_size
@@ -65,18 +64,8 @@ def main(cfg):
     dtype = torch.float32 # use float32 by default
     image_name = cfg.prompt.replace(' ', '_')
 
-    ### set up logger
-    logging.getLogger('matplotlib.font_manager').disabled = True
-    logging.getLogger('PIL').setLevel(logging.WARNING)
-    logging.basicConfig(filename=f'{output_dir}/experiment.log', filemode='w',
-                        format='%(asctime)s %(levelname)s --> %(message)s',
-                        level=logging.INFO,
-                        datefmt='%Y-%m-%d %H:%M:%S')
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger = setup_logger(output_dir)
     logger.info(f'[INFO] Cmdline: '+' '.join(sys.argv))
-
-    ### log basic info
     logger.info(f'Using device: {device}; version: {str(torch.version.cuda)}')
     if device.type == 'cuda':
         logger.info(torch.cuda.get_device_name(0))

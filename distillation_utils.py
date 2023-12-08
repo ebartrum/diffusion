@@ -4,7 +4,7 @@ import numpy as np
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-
+import logging
 from diffusers.models.attention_processor import (
     AttnAddedKVProcessor,
     AttnAddedKVProcessor2_0,
@@ -13,6 +13,17 @@ from diffusers.models.attention_processor import (
     SlicedAttnAddedKVProcessor,
 )
 from diffusers.loaders import AttnProcsLayers
+
+def setup_logger(output_dir):
+    logging.getLogger('matplotlib.font_manager').disabled = True
+    logging.getLogger('PIL').setLevel(logging.WARNING)
+    logging.basicConfig(filename=f'{output_dir}/experiment.log', filemode='w',
+                        format='%(asctime)s %(levelname)s --> %(message)s',
+                        level=logging.INFO,
+                        datefmt='%Y-%m-%d %H:%M:%S')
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    return logger
 
 def get_t_schedule(num_train_timesteps, args, loss_weight=None):
     # Create a list of time steps from 0 to num_train_timesteps

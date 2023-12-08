@@ -84,8 +84,6 @@ def main(cfg):
     scheduler.betas = scheduler.betas.to(device)
     scheduler.alphas = scheduler.alphas.to(device)
     scheduler.alphas_cumprod = scheduler.alphas_cumprod.to(device)
-    unet_phi = None
-    vae_phi = vae
 
     ### get text embedding
     text_input = tokenizer([cfg.prompt], padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt")

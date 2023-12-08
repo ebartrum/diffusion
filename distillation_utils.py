@@ -227,7 +227,7 @@ def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, g
         )  # no noise when t == 0
         latents = mean_pred + nonzero_mask * sigma * noise
 
-def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings,
+def predict_noise(unet, noisy_latents, noise, text_embeddings,
       t, guidance_scale=7.5, multisteps=1, scheduler=None, half_inference = False):
     with torch.no_grad():
         if multisteps > 1:
@@ -239,10 +239,7 @@ def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings,
                          guidance_scale=guidance_scale, scheduler=scheduler,
                          half_inference=half_inference)
 
-    grad = noise_pred - noise
-    grad = torch.nan_to_num(grad)
-
-    return grad, noise_pred.detach().clone()
+    return noise_pred
 
 def get_latents(particles, vae, rgb_as_latents=False):
     if rgb_as_latents:

@@ -15,8 +15,7 @@ from pathlib import Path
 from distillation_utils import (
             get_t_schedule,
             get_loss_weights,
-            sds_vsd_grad_diffuser,
-            predict_noise0_diffuser,
+            predict_noise,
             get_images,
             get_latents,
             setup_logger
@@ -150,10 +149,14 @@ def main(cfg):
         noisy_latents = scheduler.add_noise(latents_vsd, noise, t)
         ######## Do the gradient for latents!!! #########
         optimizer.zero_grad()
-        grad_, noise_pred = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
+        noise_pred = predict_noise(unet, noisy_latents, noise, text_embeddings_vsd, t, \
                                                 guidance_scale=cfg.guidance_scale,
                                                             multisteps=cfg.multisteps, scheduler=scheduler,
                                                                 half_inference=cfg.half_inference)
+        grad_ = noise_pred - noise
+        grad_ = torch.nan_to_num(grad_)
+        noise_pred = noise_pred.detach().clone()
+
         ## weighting
         grad_ *= loss_weights[int(t)]
         target = (latents_vsd - grad_).detach()

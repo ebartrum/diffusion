@@ -97,12 +97,11 @@ def main(cfg):
         text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
     max_length = text_input.input_ids.shape[-1]
     uncond_input = tokenizer(
-        [""] * max(cfg.particle_num_vsd,cfg.particle_num_phi), padding="max_length", max_length=max_length, return_tensors="pt"
+        [""], padding="max_length", max_length=max_length, return_tensors="pt"
     )
     with torch.no_grad():
         uncond_embeddings = text_encoder(uncond_input.input_ids.to(device))[0]
-    text_embeddings_vsd = torch.cat([uncond_embeddings[:cfg.particle_num_vsd], text_embeddings[:cfg.particle_num_vsd]])
-    text_embeddings_phi = torch.cat([uncond_embeddings[:cfg.particle_num_phi], text_embeddings[:cfg.particle_num_phi]])
+    text_embeddings_vsd = torch.cat([uncond_embeddings, text_embeddings])
 
     ### weight loss
     num_train_timesteps = len(scheduler.betas)

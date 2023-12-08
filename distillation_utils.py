@@ -239,8 +239,8 @@ def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, g
         )  # no noise when t == 0
         latents = mean_pred + nonzero_mask * sigma * noise
 
-def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_phi=None, guidance_scale=7.5, \
-                        grad_scale=1, cfg_phi=1., phi_model='lora', \
+def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, guidance_scale=7.5, \
+                        grad_scale=1, \
                             multisteps=1, scheduler=None, lora_v=False, \
                                 half_inference = False):
     unet_cross_attention_kwargs = {}
@@ -252,10 +252,9 @@ def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_p
             noise_pred = predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_scale=guidance_scale, cross_attention_kwargs=unet_cross_attention_kwargs, scheduler=scheduler, half_inference=half_inference)
 
     grad = grad_scale * (noise_pred - noise)
-    noise_pred_phi = noise
     grad = torch.nan_to_num(grad)
 
-    return grad, noise_pred.detach().clone(), noise_pred_phi.detach().clone()
+    return grad, noise_pred.detach().clone()
 
 def phi_vsd_grad_diffuser(unet_phi, latents, noise, text_embeddings, t, cfg_phi=1., grad_scale=1, cross_attention_kwargs={}, scheduler=None, lora_v=False, half_inference=False):
     loss_fn = nn.MSELoss()

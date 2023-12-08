@@ -152,12 +152,11 @@ def main(cfg):
         noisy_latents = scheduler.add_noise(latents_vsd, noise, t)
         ######## Do the gradient for latents!!! #########
         optimizer.zero_grad()
-        grad_, noise_pred, noise_pred_phi = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
-                                                guidance_scale=cfg.guidance_scale, unet_phi=unet_phi, \
-                                                    phi_model=cfg.phi_model, \
+        grad_, noise_pred = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
+                                                guidance_scale=cfg.guidance_scale,
                                                             multisteps=cfg.multisteps, scheduler=scheduler, lora_v=cfg.lora_vprediction, \
                                                                 half_inference=cfg.half_inference, \
-                                                                    cfg_phi=cfg.cfg_phi, grad_scale=cfg.grad_scale)
+                                                                    grad_scale=cfg.grad_scale)
         ## weighting
         grad_ *= loss_weights[int(t)]
         target = (latents_vsd - grad_).detach()

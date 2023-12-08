@@ -155,8 +155,7 @@ def main(cfg):
         grad_, noise_pred = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
                                                 guidance_scale=cfg.guidance_scale,
                                                             multisteps=cfg.multisteps, scheduler=scheduler, lora_v=cfg.lora_vprediction, \
-                                                                half_inference=cfg.half_inference, \
-                                                                    grad_scale=cfg.grad_scale)
+                                                                half_inference=cfg.half_inference)
         ## weighting
         grad_ *= loss_weights[int(t)]
         target = (latents_vsd - grad_).detach()

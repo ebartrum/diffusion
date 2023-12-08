@@ -255,21 +255,6 @@ def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, guidan
 
     return grad, noise_pred.detach().clone()
 
-def phi_vsd_grad_diffuser(unet_phi, latents, noise, text_embeddings, t, cfg_phi=1., grad_scale=1, cross_attention_kwargs={}, scheduler=None, lora_v=False, half_inference=False):
-    loss_fn = nn.MSELoss()
-    # ref to https://github.com/ashawkey/stable-dreamfusion/blob/main/guidance/sd_utils.py#L114
-    # predict the noise residual with unet
-    clean_latents = scheduler.step(noise, t, latents).pred_original_sample
-    noise_pred = predict_noise0_diffuser(unet_phi, latents, text_embeddings, t, guidance_scale=cfg_phi, cross_attention_kwargs=cross_attention_kwargs, scheduler=scheduler, half_inference=half_inference)
-    if lora_v:
-        target = scheduler.get_velocity(clean_latents.detach(), noise, t)
-    else:
-        target = noise
-    loss = loss_fn(noise_pred, target)
-    loss *= grad_scale
-
-    return loss
-
 def extract_lora_diffusers(unet, device):
     ### ref: https://github.com/huggingface/diffusers/blob/4f14b363297cf8deac3e88a3bf31f59880ac8a96/examples/dreambooth/train_dreambooth_lora.py#L833
     ### begin lora

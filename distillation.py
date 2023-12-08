@@ -138,16 +138,10 @@ def main(cfg):
     pbar = tqdm(chosen_ts)
 
     for step, chosen_t in enumerate(pbar):
-        # get latent of all particles
         latents = get_latents(particles, vae, cfg.rgb_as_latents)
         t = torch.tensor([chosen_t]).to(device)
-        ######## q sample #########
-        # random sample particle_num_vsd particles from latents
-        indices = torch.randperm(latents.size(0))
-        latents_vsd = latents[indices[:cfg.particle_num_vsd]]
-        noise = torch.randn_like(latents_vsd)
-        noisy_latents = scheduler.add_noise(latents_vsd, noise, t)
-        ######## Do the gradient for latents!!! #########
+        noise = torch.randn_like(latents)
+        noisy_latents = scheduler.add_noise(latents, noise, t)
         optimizer.zero_grad()
         noise_pred = predict_noise(unet, noisy_latents, noise,
                     text_embeddings_vsd, t, \
@@ -160,8 +154,8 @@ def main(cfg):
 
         ## weighting
         grad *= loss_weights[int(t)]
-        target = (latents_vsd - grad).detach()
-        loss = 0.5 * F.mse_loss(latents_vsd, target, reduction="mean") / cfg.batch_size
+        target = (latents - grad).detach()
+        loss = 0.5 * F.mse_loss(latents, target, reduction="mean") / cfg.batch_size
         loss.backward()
         optimizer.step()
         torch.cuda.empty_cache()
@@ -176,7 +170,7 @@ def main(cfg):
             log_steps.append(step)
             # save current img_tensor
             # scale and decode the image latents with vae
-            tmp_latents = 1 / vae.config.scaling_factor * latents_vsd.clone().detach()
+            tmp_latents = 1 / vae.config.scaling_factor * latents.clone().detach()
             if cfg.save_x0:
                 # compute the predicted clean sample x_0
                 pred_latents = scheduler.step(noise_pred, t, noisy_latents).pred_original_sample.to(dtype).clone().detach()

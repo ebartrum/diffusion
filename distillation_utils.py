@@ -321,23 +321,6 @@ def extract_lora_diffusers(unet, device):
     ### end lora
     return unet, unet_lora_layers
 
-def get_optimizer(parameters, config):
-    if config.optimizer == "adam":
-        optimizer = torch.optim.Adam(parameters, lr=config.lr, betas=config.betas, \
-                                    weight_decay=config.weight_decay)
-    elif config.optimizer == "adamw":
-        optimizer = torch.optim.AdamW(parameters, lr=config.lr, betas=config.betas, \
-                                    weight_decay=config.weight_decay)
-    elif config.optimizer == "radam":
-        optimizer = torch.optim.RAdam(parameters, lr=config.lr, betas=config.betas, \
-                                    weight_decay=config.weight_decay)
-    elif config.optimizer == "sgd":
-        optimizer = torch.optim.SGD(parameters, lr=config.lr, betas=config.betas, \
-                                    weight_decay=config.weight_decay)
-    else:
-        raise NotImplementedError(f"Optimizer {config.optimizer} not implemented.")
-    return optimizer
-
 def get_latents(particles, vae, rgb_as_latents=False):
     if rgb_as_latents:
         latents = F.interpolate(particles, (64, 64), mode="bilinear", align_corners=False)

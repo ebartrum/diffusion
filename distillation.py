@@ -145,7 +145,6 @@ def main(cfg):
     pbar = tqdm(chosen_ts)
 
     if cfg.generation_mode in ['sds', 'vsd']:
-        cross_attention_kwargs = {}
         for step, chosen_t in enumerate(pbar):
             # get latent of all particles
             latents = get_latents(particles, vae, cfg.rgb_as_latents)
@@ -161,7 +160,6 @@ def main(cfg):
             grad_, noise_pred, noise_pred_phi = sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings_vsd, t, \
                                                     guidance_scale=cfg.guidance_scale, unet_phi=unet_phi, \
                                                         phi_model=cfg.phi_model, \
-                                                            cross_attention_kwargs=cross_attention_kwargs, \
                                                                 multisteps=cfg.multisteps, scheduler=scheduler, lora_v=cfg.lora_vprediction, \
                                                                     half_inference=cfg.half_inference, \
                                                                         cfg_phi=cfg.cfg_phi, grad_scale=cfg.grad_scale)

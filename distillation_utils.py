@@ -243,7 +243,7 @@ def predict_noise0_diffuser_multistep(unet, noisy_latents, text_embeddings, t, g
 
 def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_phi=None, guidance_scale=7.5, \
                         grad_scale=1, cfg_phi=1., phi_model='lora', \
-                            cross_attention_kwargs={}, multisteps=1, scheduler=None, lora_v=False, \
+                            multisteps=1, scheduler=None, lora_v=False, \
                                 half_inference = False):
     unet_cross_attention_kwargs = {}
     with torch.no_grad():

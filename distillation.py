@@ -182,9 +182,10 @@ def main(cfg):
             save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/step{str(step).zfill(len(str(cfg.num_steps)))}_t{t.item()}.png')
 
     if cfg.log_progress:
-        writer = imageio.get_writer(f'{output_dir}/train_progress.mp4')
         images = sorted(Path(output_dir).glob(f"step*.png"))
         images = [imageio.imread(image) for image in images]
+        writer = imageio.get_writer(f'{output_dir}/train_progress.mp4',
+                fps=10, codec='mpeg4')
         for img in images:
             writer.append_data(img)
         writer.close()

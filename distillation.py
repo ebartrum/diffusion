@@ -181,9 +181,6 @@ def main(cfg):
         writer.append_data(img)
     writer.close()
 
-    image = get_images(particles, vae, cfg.rgb_as_latents)
-    save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/final_image.png')
-
 #########################################################################################
 if __name__ == "__main__":
     main()

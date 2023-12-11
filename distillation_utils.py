@@ -21,79 +21,20 @@ def show_step(step, total_steps):
     return f'step{str(step).zfill(len(str(total_steps)))}'
 
 def get_t_schedule(num_train_timesteps, args, loss_weight=None):
-    # Create a list of time steps from 0 to num_train_timesteps
     ts = list(range(num_train_timesteps))
-    # set ts to U[0.02,0.98] as least
     assert (args.t_start >= 20) and (args.t_end <= 980)
     ts = ts[args.t_start:args.t_end]
-
-    # If the scheduling strategy is 'random', choose args.num_steps random time steps without replacement
     if args.t_schedule == 'random':
         chosen_ts = np.random.choice(ts, args.num_steps, replace=True)
-
-    # If the scheduling strategy is 'random_down', first exclude the first 30 and last 10 time steps
-    # then choose a random time step from an interval that shrinks as step increases
-    elif 'random_down' in args.t_schedule:
-        interval_ratio = int(args.t_schedule[11:]) if len(args.t_schedule[11:]) > 0 else 5
-        interval_ratio *= 0.1
-        chosen_ts = [np.random.choice(
-                        ts[max(0,int((args.num_steps-step-interval_ratio*args.num_steps)/args.num_steps*len(ts))):\
-                           min(len(ts),int((args.num_steps-step+interval_ratio*args.num_steps)/args.num_steps*len(ts)))],
-                     1, replace=True).astype(int)[0] \
-                     for step in range(args.num_steps)]
-
-    # If the scheduling strategy is 'fixed', parse the fixed time step from the string and repeat it args.num_steps times
     elif 'fixed' in args.t_schedule:
         fixed_t = int(args.t_schedule[5:])
         chosen_ts = [fixed_t for _ in range(args.num_steps)]
-
-    # If the scheduling strategy is 'descend', parse the start time step from the string (or default to 1000)
-    # then create a list of descending time steps from the start to 0, with length args.num_steps
     elif 'descend' in args.t_schedule:
-        if 'quad' in args.t_schedule:   # no significant improvement
-            descend_from = int(args.t_schedule[12:]) if len(args.t_schedule[7:]) > 0 else len(ts)
-            chosen_ts = np.square(np.linspace(descend_from**0.5, 1, args.num_steps))
-            chosen_ts = chosen_ts.astype(int).tolist()
-        else:
-            descend_from = int(args.t_schedule[7:]) if len(args.t_schedule[7:]) > 0 else len(ts)
-            chosen_ts = np.linspace(descend_from-1, 1, args.num_steps, endpoint=True)
-            chosen_ts = chosen_ts.astype(int).tolist()
-
-    # If the scheduling strategy is 't_stages', the total number of time steps are divided into several stages.
-    # In each stage, a decreasing portion of the total time steps is considered for selection.
-    # For each stage, time steps are randomly selected with replacement from the respective portion.
-    # The final list of chosen time steps is a concatenation of the time steps selected in all stages.
-    # Note: The total number of time steps should be evenly divisible by the number of stages.
-    elif 't_stages' in args.t_schedule:
-        # Parse the number of stages from the scheduling strategy string
-        num_stages = int(args.t_schedule[8:]) if len(args.t_schedule[8:]) > 0 else 2
-        chosen_ts = []
-        for i in range(num_stages):
-            # Define the portion of ts to be considered in this stage
-            portion = ts[:int((num_stages-i)*len(ts)//num_stages)]
-            selected_ts = np.random.choice(portion, args.num_steps//num_stages, replace=True).tolist()
-            chosen_ts += selected_ts
-
-    elif 'dreamtime' in args.t_schedule:
-        # time schedule in dreamtime https://arxiv.org/abs//2306.12422
-        assert 'dreamtime' in args.loss_weight_type
-        loss_weight_sum = np.sum(loss_weight)
-        p = [wt / loss_weight_sum for wt in loss_weight]
-        N = args.num_steps
-        def t_i(t, i, p):
-            t = int(max(0, min(len(p)-1, t)))
-            return abs(sum(p[t:]) - i/N)
-        chosen_ts = []
-        for i in range(N):
-            # Initial guess for t
-            t0 = 999
-            selected_t = minimize(t_i, t0, args=(i, p), method='Nelder-Mead')
-            selected_t = max(0, int(selected_t.x))
-            chosen_ts.append(selected_t)
+        descend_from = int(args.t_schedule[7:]) if len(args.t_schedule[7:]) > 0 else len(ts)
+        chosen_ts = np.linspace(descend_from-1, 1, args.num_steps, endpoint=True)
+        chosen_ts = chosen_ts.astype(int).tolist()
     else:
         raise ValueError(f"Unknown scheduling strategy: {args.t_schedule}")
-
-    # Return the list of chosen time steps
     return chosen_ts
 
 def get_loss_weights(betas, args):

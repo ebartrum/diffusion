@@ -10,7 +10,7 @@ multisteps: 1
 t_schedule: descend
 height: 512
 width: 512
-rgb_as_latents: True
+distillation_space: latent
 guidance_scale: 7.5
 lr: 0.01
 loss_weight_type: none

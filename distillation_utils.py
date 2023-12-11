@@ -99,7 +99,6 @@ def predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_sc
     batch_size = noisy_latents.shape[0]
     latent_model_input = torch.cat([noisy_latents] * 2)
     latent_model_input = scheduler.scale_model_input(latent_model_input, t)
-
     # Convert inputs to half precision
     if half_inference:
         noisy_latents = noisy_latents.clone().half()
@@ -110,7 +109,6 @@ def predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_sc
     else:
         # predict the noise residual
         noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, cross_attention_kwargs=cross_attention_kwargs).sample
-
         # perform guidance
         noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
         noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
@@ -174,13 +172,12 @@ def predict_noise(unet, noisy_latents, noise, text_embeddings,
             noise_pred = predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t,
                          guidance_scale=guidance_scale, scheduler=scheduler,
                          half_inference=half_inference)
-
     return noise_pred
 
-def get_latents(model, vae, rgb_as_latents=False):
-    if rgb_as_latents:
+def get_latents(model, vae, distillation_space="rgb"):
+    if distillation_space=="latent":
         latents = F.interpolate(model.unsqueeze(0), (64, 64), mode="bilinear", align_corners=False)
-    else:
+    elif distillation_space=="rgb":
         rgb_BCHW_512 = F.interpolate(model.unsqueeze(0), (512, 512), mode="bilinear", align_corners=False)
         latents = vae.config.scaling_factor * vae.encode(rgb_BCHW_512).latent_dist.sample()
     return latents

@@ -9,7 +9,6 @@ from torchvision.utils import save_image
 from torchvision import io
 from tqdm import tqdm
 from datetime import datetime
-import random
 import imageio
 from pathlib import Path
 from distillation_utils import (
@@ -26,20 +25,12 @@ from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers import DDIMScheduler
 import hydra
 from omegaconf import OmegaConf
-from utils import SLURM_OUTPUT_DIR
+from utils import SLURM_OUTPUT_DIR, seed_all
 
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
 def main(cfg):
-    ### set random seed everywhere
-    torch.manual_seed(cfg.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(cfg.seed)
-        torch.cuda.manual_seed_all(cfg.seed)  # for multi-GPU.
-    np.random.seed(cfg.seed)  # Numpy module.
-    random.seed(cfg.seed)  # Python random module.
-    torch.manual_seed(cfg.seed)
-
+    seed_all(cfg.seed)
     if os.getenv("SLURM_JOB_ID"):
         output_dir = os.path.join("out", SLURM_OUTPUT_DIR)
     else:
@@ -87,9 +78,8 @@ def main(cfg):
     with torch.no_grad():
         text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
     max_length = text_input.input_ids.shape[-1]
-    uncond_input = tokenizer(
-        [""], padding="max_length", max_length=max_length, return_tensors="pt"
-    )
+    uncond_input = tokenizer([""], padding="max_length",
+         max_length=max_length, return_tensors="pt")
     with torch.no_grad():
         uncond_embeddings = text_encoder(uncond_input.input_ids.to(device))[0]
     text_embeddings_vsd = torch.cat([uncond_embeddings, text_embeddings])
@@ -100,11 +90,12 @@ def main(cfg):
     scheduler.set_timesteps(num_train_timesteps)
 
     ### instantiate model
-    if cfg.rgb_as_latents:
+    if cfg.distillation_space == "latent":
         model = torch.randn((unet.config.in_channels,
              cfg.height // 8, cfg.width // 8))
-    else:
+    elif cfg.distillation_space == "rgb":
         model = torch.randn((3, cfg.height, cfg.width))
+
     model = model.to(device, dtype=dtype)
     model.requires_grad = True
     total_parameters = sum(p.numel() for p in model if p.requires_grad)
@@ -124,7 +115,7 @@ def main(cfg):
 
     for step, chosen_t in enumerate(pbar):
         t = torch.tensor([chosen_t]).to(device)
-        model_latents = get_latents(model, vae, cfg.rgb_as_latents)
+        model_latents = get_latents(model, vae, cfg.distillation_space)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()

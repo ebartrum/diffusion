@@ -120,8 +120,7 @@ def main(cfg):
     log_steps = []
     train_loss_values = []
     ave_train_loss_values = []
-    if cfg.log_progress:
-        image_progress = []
+    image_progress = []
     first_iteration = True
     logger.info("################# Metrics: ####################")
     ######## t schedule #########
@@ -153,35 +152,34 @@ def main(cfg):
 
         train_loss_values.append(loss.item())
         pbar.set_description(f'Loss: {loss.item():.6f}, sampled t : {t.item()}')
-
         optimizer.zero_grad()
 
         ######## Evaluation and log metric #########
         if cfg.log_steps and (step % cfg.log_steps == 0 or step == (cfg.num_steps-1)):
             log_steps.append(step)
-            tmp_latents = 1 / vae.config.scaling_factor * model_latents.clone().detach()
             pred_latents = scheduler.step(noise_pred, t,
                     noisy_model_latents).pred_original_sample.to(dtype).clone().detach()
+            model_latents = model_latents.clone().detach()
             with torch.no_grad():
                 if cfg.half_inference:
-                    tmp_latents = tmp_latents.half()
+                    model_latents = model_latents.half()
                     pred_latents = pred_latents.half()
-                image_ = vae.decode(tmp_latents).sample.to(torch.float32)
+                image_ = vae.decode(model_latents/vae.config.scaling_factor
+                        ).sample.to(torch.float32)
                 image_x0 = vae.decode(pred_latents / vae.config.scaling_factor
                         ).sample.to(torch.float32)
                 image = torch.cat((image_,image_x0), dim=2)
-            if cfg.log_progress:
-                image_progress.append((image/2+0.5).clamp(0, 1))
-            save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/step{str(step).zfill(len(str(cfg.num_steps)))}.png')
+            image_progress.append((image/2+0.5).clamp(0, 1))
+            log_img_filename = f'{output_dir}/step{str(step).zfill(len(str(cfg.num_steps)))}.png'
+            save_image((image/2+0.5).clamp(0, 1), log_img_filename)
 
-    if cfg.log_progress:
-        images = sorted(Path(output_dir).glob(f"step*.png"))
-        images = [imageio.imread(image) for image in images]
-        writer = imageio.get_writer(f'{output_dir}/progress.mp4',
-                fps=10, codec='mpeg4')
-        for img in images:
-            writer.append_data(img)
-        writer.close()
+    images = sorted(Path(output_dir).glob(f"step*.png"))
+    images = [imageio.imread(image) for image in images]
+    writer = imageio.get_writer(f'{output_dir}/progress.mp4',
+            fps=10, codec='mpeg4')
+    for img in images:
+        writer.append_data(img)
+    writer.close()
 
     image = get_images(particles, vae, cfg.rgb_as_latents)
     save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/final_image.png')

@@ -135,7 +135,6 @@ def main(cfg):
                     half_inference=cfg.half_inference)
         grad = noise_pred - noise
         grad = torch.nan_to_num(grad)
-        noise_pred = noise_pred.detach().clone()
 
         ## weighting
         grad *= loss_weights[int(t)]
@@ -154,6 +153,7 @@ def main(cfg):
                 step == (cfg.num_steps-1)):
             target_latents = scheduler.step(noise_pred, t,
                     noisy_model_latents).pred_original_sample.to(dtype).clone().detach()
+            noise_pred = noise_pred.clone().detach()
             model_latents = model_latents.clone().detach()
             with torch.no_grad():
                 if cfg.half_inference:

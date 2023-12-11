@@ -124,7 +124,6 @@ def main(cfg):
                     guidance_scale=cfg.guidance_scale,
                     multisteps=cfg.multisteps, scheduler=scheduler,
                     half_inference=cfg.half_inference)
-
         loss = 0
         if cfg.loss.sds:
             grad = noise_pred - noise
@@ -136,9 +135,13 @@ def main(cfg):
             loss = loss + cfg.loss.sds*sds_loss
         if cfg.loss.BGTplus:
             target_latents = scheduler.step(noise_pred, t,
-                    noisy_model_latents).pred_original_sample.to(dtype).clone().detach()
+                    noisy_model_latents).pred_original_sample.clone().detach().to(vae.dtype)
             target_rgb = vae.decode(target_latents / vae.config.scaling_factor
-                    ).sample.to(torch.float32).clone().detach()
+                    ).sample.clone().detach()
+            BGTplus_loss = F.mse_loss(model_latents, target_latents,
+                  reduction="mean") + 0.1*F.mse_loss(model_rgb,
+                     target_rgb, reduction="mean")
+            loss = loss + cfg.loss.BGTplus*BGTplus_loss
 
         loss.backward()
         optimizer.step()

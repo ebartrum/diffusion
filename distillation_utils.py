@@ -240,24 +240,3 @@ def get_latents(particles, vae, rgb_as_latents=False):
         rgb_BCHW_512 = F.interpolate(particles, (512, 512), mode="bilinear", align_corners=False)
         latents = vae.config.scaling_factor * vae.encode(rgb_BCHW_512).latent_dist.sample()
     return latents
-
-@torch.no_grad()
-def batch_decode_vae(latents, vae):
-    latents = 1 / vae.config.scaling_factor * latents.clone().detach()
-    bs = 8  # avoid OOM for too many particles
-    images = []
-    for i in range(int(np.ceil(latents.shape[0] / bs))):
-        batch_i = latents[i*bs:(i+1)*bs]
-        image_i = vae.decode(batch_i).sample.to(torch.float32)
-        images.append(image_i)
-    image = torch.cat(images, dim=0)
-    return image
-
-@torch.no_grad()
-def get_images(particles, vae, rgb_as_latents=False):
-    if rgb_as_latents:
-        latents = F.interpolate(particles, (64, 64), mode="bilinear", align_corners=False)
-        images = batch_decode_vae(latents, vae)
-    else:
-        images = F.interpolate(particles, (512, 512), mode="bilinear", align_corners=False)
-    return images

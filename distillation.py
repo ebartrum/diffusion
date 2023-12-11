@@ -78,9 +78,8 @@ def main(cfg):
     with torch.no_grad():
         text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
     max_length = text_input.input_ids.shape[-1]
-    uncond_input = tokenizer(
-        [""], padding="max_length", max_length=max_length, return_tensors="pt"
-    )
+    uncond_input = tokenizer([""], padding="max_length",
+         max_length=max_length, return_tensors="pt")
     with torch.no_grad():
         uncond_embeddings = text_encoder(uncond_input.input_ids.to(device))[0]
     text_embeddings_vsd = torch.cat([uncond_embeddings, text_embeddings])
@@ -96,6 +95,7 @@ def main(cfg):
              cfg.height // 8, cfg.width // 8))
     else:
         model = torch.randn((3, cfg.height, cfg.width))
+
     model = model.to(device, dtype=dtype)
     model.requires_grad = True
     total_parameters = sum(p.numel() for p in model if p.requires_grad)

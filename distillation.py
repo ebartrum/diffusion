@@ -116,7 +116,6 @@ def main(cfg):
 
     #######################################################################################
     ############################# Main optimization loop ##############################
-    log_steps = []
     train_loss_values = []
     ave_train_loss_values = []
     image_progress = []
@@ -127,8 +126,8 @@ def main(cfg):
     pbar = tqdm(chosen_ts)
 
     for step, chosen_t in enumerate(pbar):
-        model_latents = get_latents(particles, vae, cfg.rgb_as_latents)
         t = torch.tensor([chosen_t]).to(device)
+        model_latents = get_latents(particles, vae, cfg.rgb_as_latents)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()
@@ -154,27 +153,28 @@ def main(cfg):
         optimizer.zero_grad()
 
         ######## Evaluation and log metric #########
-        if cfg.log_steps and (step % cfg.log_steps == 0 or step == (cfg.num_steps-1)):
-            log_steps.append(step)
-            pred_latents = scheduler.step(noise_pred, t,
+        if cfg.log_steps and (step % cfg.log_steps == 0 or
+                step == (cfg.num_steps-1)):
+            target_latents = scheduler.step(noise_pred, t,
                     noisy_model_latents).pred_original_sample.to(dtype).clone().detach()
             model_latents = model_latents.clone().detach()
             with torch.no_grad():
                 if cfg.half_inference:
                     model_latents = model_latents.half()
-                    pred_latents = pred_latents.half()
-                image_ = vae.decode(model_latents/vae.config.scaling_factor
+                    target_latents = target_latents.half()
+                model_rgb = vae.decode(model_latents/vae.config.scaling_factor
                         ).sample.to(torch.float32)
-                image_x0 = vae.decode(pred_latents / vae.config.scaling_factor
+                target_rgb = vae.decode(target_latents / vae.config.scaling_factor
                         ).sample.to(torch.float32)
-                image = torch.cat((image_,image_x0), dim=2)
-            image_progress.append((image/2+0.5).clamp(0, 1))
-            log_img_filename = f'{output_dir}/step{str(step).zfill(len(str(cfg.num_steps)))}.png'
-            save_image((image/2+0.5).clamp(0, 1), log_img_filename)
+                log_img = torch.cat((model_rgb,target_rgb), dim=2)
+            image_progress.append((log_img/2+0.5).clamp(0, 1))
+            log_img_filename = f'step{str(step).zfill(len(str(cfg.num_steps)))}.png'
+            save_image((log_img/2+0.5).clamp(0, 1),
+                    os.path.join(output_dir, log_img_filename))
 
     images = sorted(Path(output_dir).glob(f"step*.png"))
     images = [imageio.imread(image) for image in images]
-    writer = imageio.get_writer(f'{output_dir}/progress.mp4',
+    writer = imageio.get_writer(os.path.join(output_dir, "progress.mp4"),
             fps=10, codec='mpeg4')
     for img in images:
         writer.append_data(img)

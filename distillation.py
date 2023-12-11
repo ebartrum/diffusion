@@ -9,7 +9,6 @@ from torchvision.utils import save_image
 from torchvision import io
 from tqdm import tqdm
 from datetime import datetime
-import random
 import imageio
 from pathlib import Path
 from distillation_utils import (
@@ -26,20 +25,12 @@ from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers import DDIMScheduler
 import hydra
 from omegaconf import OmegaConf
-from utils import SLURM_OUTPUT_DIR
+from utils import SLURM_OUTPUT_DIR, seed_all
 
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
 def main(cfg):
-    ### set random seed everywhere
-    torch.manual_seed(cfg.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(cfg.seed)
-        torch.cuda.manual_seed_all(cfg.seed)  # for multi-GPU.
-    np.random.seed(cfg.seed)  # Numpy module.
-    random.seed(cfg.seed)  # Python random module.
-    torch.manual_seed(cfg.seed)
-
+    seed_all(cfg.seed)
     if os.getenv("SLURM_JOB_ID"):
         output_dir = os.path.join("out", SLURM_OUTPUT_DIR)
     else:

@@ -159,26 +159,20 @@ def main(cfg):
         ######## Evaluation and log metric #########
         if cfg.log_steps and (step % cfg.log_steps == 0 or step == (cfg.num_steps-1)):
             log_steps.append(step)
-            # save current img_tensor
-            # scale and decode the image latents with vae
             tmp_latents = 1 / vae.config.scaling_factor * latents.clone().detach()
-            if cfg.save_x0:
-                # compute the predicted clean sample x_0
-                pred_latents = scheduler.step(noise_pred, t, noisy_latents).pred_original_sample.to(dtype).clone().detach()
+            pred_latents = scheduler.step(noise_pred, t,
+                    noisy_latents).pred_original_sample.to(dtype).clone().detach()
             with torch.no_grad():
                 if cfg.half_inference:
                     tmp_latents = tmp_latents.half()
+                    pred_latents = pred_latents.half()
                 image_ = vae.decode(tmp_latents).sample.to(torch.float32)
-                if cfg.save_x0:
-                    if cfg.half_inference:
-                        pred_latents = pred_latents.half()
-                    image_x0 = vae.decode(pred_latents / vae.config.scaling_factor).sample.to(torch.float32)
-                    image = torch.cat((image_,image_x0), dim=2)
-                else:
-                    image = image_
+                image_x0 = vae.decode(pred_latents / vae.config.scaling_factor
+                        ).sample.to(torch.float32)
+                image = torch.cat((image_,image_x0), dim=2)
             if cfg.log_progress:
                 image_progress.append((image/2+0.5).clamp(0, 1))
-            save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/step{str(step).zfill(len(str(cfg.num_steps)))}_t{t.item()}.png')
+            save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/step{str(step).zfill(len(str(cfg.num_steps)))}.png')
 
     if cfg.log_progress:
         images = sorted(Path(output_dir).glob(f"step*.png"))

@@ -17,6 +17,9 @@ def setup_logger(output_dir):
     logger.setLevel(logging.DEBUG)
     return logger
 
+def show_step(step, total_steps):
+    return f'step{str(step).zfill(len(str(total_steps)))}'
+
 def get_t_schedule(num_train_timesteps, args, loss_weight=None):
     # Create a list of time steps from 0 to num_train_timesteps
     ts = list(range(num_train_timesteps))

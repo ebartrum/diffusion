@@ -17,7 +17,8 @@ from distillation_utils import (
             get_loss_weights,
             predict_noise,
             get_latents,
-            setup_logger
+            setup_logger,
+            show_step
             )
 from transformers import CLIPTextModel, CLIPTokenizer
 from transformers import logging as transformers_logging
@@ -168,7 +169,7 @@ def main(cfg):
                         ).sample.to(torch.float32)
                 log_img = torch.cat((model_rgb,target_rgb), dim=2)
             image_progress.append((log_img/2+0.5).clamp(0, 1))
-            log_img_filename = f'step{str(step).zfill(len(str(cfg.num_steps)))}.png'
+            log_img_filename = f'{show_step(step, cfg.num_steps)}.png'
             save_image((log_img/2+0.5).clamp(0, 1),
                     os.path.join(output_dir, log_img_filename))
 

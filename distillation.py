@@ -100,20 +100,19 @@ def main(cfg):
     loss_weights = get_loss_weights(scheduler.betas, cfg)
     scheduler.set_timesteps(num_train_timesteps)
 
-    ### initialize particles
+    ### initialize models
     if cfg.rgb_as_latents:
-        particles = torch.randn((1, unet.config.in_channels,
+        models = torch.randn((1, unet.config.in_channels,
              cfg.height // 8, cfg.width // 8))
     else:
-        particles = torch.randn((1, 3, cfg.height, cfg.width))
-        cfg.lr = cfg.lr * 1   # need larger lr for rgb particles
-    particles = particles.to(device, dtype=dtype)
-    particles.requires_grad = True
-    particles_to_optimize = [particles]
+        models = torch.randn((1, 3, cfg.height, cfg.width))
+    models = models.to(device, dtype=dtype)
+    models.requires_grad = True
+    models_to_optimize = [models]
 
-    total_parameters = sum(p.numel() for p in particles_to_optimize if p.requires_grad)
-    print(f'Total number of trainable parameters in particles: {total_parameters}; number of particles: 1')
-    optimizer = torch.optim.Adam(particles_to_optimize, lr=cfg.lr)
+    total_parameters = sum(p.numel() for p in models_to_optimize if p.requires_grad)
+    print(f'Total number of trainable parameters in models: {total_parameters}')
+    optimizer = torch.optim.Adam(models_to_optimize, lr=cfg.lr)
 
     #######################################################################################
     ############################# Main optimization loop ##############################
@@ -128,7 +127,7 @@ def main(cfg):
 
     for step, chosen_t in enumerate(pbar):
         t = torch.tensor([chosen_t]).to(device)
-        model_latents = get_latents(particles, vae, cfg.rgb_as_latents)
+        model_latents = get_latents(models, vae, cfg.rgb_as_latents)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()

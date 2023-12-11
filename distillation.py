@@ -15,7 +15,7 @@ from distillation_utils import (
             get_t_schedule,
             get_loss_weights,
             predict_noise,
-            get_latents,
+            get_outputs,
             setup_logger,
             show_step
             )
@@ -115,7 +115,7 @@ def main(cfg):
 
     for step, chosen_t in enumerate(pbar):
         t = torch.tensor([chosen_t]).to(device)
-        model_latents = get_latents(model, vae, cfg.distillation_space)
+        model_rgb, model_latents = get_outputs(model, vae, cfg.distillation_space)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()
@@ -125,18 +125,20 @@ def main(cfg):
                     multisteps=cfg.multisteps, scheduler=scheduler,
                     half_inference=cfg.half_inference)
 
-        grad = noise_pred - noise
-        grad = torch.nan_to_num(grad)
-
         loss = 0
         if cfg.loss.sds:
+            grad = noise_pred - noise
+            grad = torch.nan_to_num(grad)
             ## weighting
             grad *= loss_weights[int(t)]
             target = (model_latents - grad).detach()
             sds_loss = 0.5 * F.mse_loss(model_latents, target, reduction="mean")
             loss = loss + cfg.loss.sds*sds_loss
         if cfg.loss.BGTplus:
-            import ipdb;ipdb.set_trace()
+            target_latents = scheduler.step(noise_pred, t,
+                    noisy_model_latents).pred_original_sample.to(dtype).clone().detach()
+            target_rgb = vae.decode(target_latents / vae.config.scaling_factor
+                    ).sample.to(torch.float32).clone().detach()
 
         loss.backward()
         optimizer.step()
@@ -152,13 +154,9 @@ def main(cfg):
             target_latents = scheduler.step(noise_pred, t,
                     noisy_model_latents).pred_original_sample.to(dtype).clone().detach()
             noise_pred = noise_pred.clone().detach()
-            model_latents = model_latents.clone().detach()
             with torch.no_grad():
                 if cfg.half_inference:
-                    model_latents = model_latents.half()
                     target_latents = target_latents.half()
-                model_rgb = vae.decode(model_latents/vae.config.scaling_factor
-                        ).sample.to(torch.float32)
                 target_rgb = vae.decode(target_latents / vae.config.scaling_factor
                         ).sample.to(torch.float32)
                 log_img = torch.cat((model_rgb,target_rgb), dim=2)

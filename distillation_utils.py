@@ -172,12 +172,13 @@ def predict_noise(unet, noisy_latents, noise, text_embeddings,
             noise_pred = predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t,
                          guidance_scale=guidance_scale, scheduler=scheduler,
                          half_inference=half_inference)
-    return noise_pred
+    return noise_pred.to(unet.dtype)
 
-def get_latents(model, vae, distillation_space="rgb"):
+def get_outputs(model, vae, distillation_space="rgb"):
     if distillation_space=="latent":
-        latents = F.interpolate(model.unsqueeze(0), (64, 64), mode="bilinear", align_corners=False)
+        model_latents = F.interpolate(model.unsqueeze(0), (64, 64), mode="bilinear", align_corners=False).to(vae.dtype)
+        model_rgb = vae.decode(model_latents/vae.config.scaling_factor).sample
     elif distillation_space=="rgb":
-        rgb_BCHW_512 = F.interpolate(model.unsqueeze(0), (512, 512), mode="bilinear", align_corners=False)
-        latents = vae.config.scaling_factor * vae.encode(rgb_BCHW_512).latent_dist.sample()
-    return latents
+        model_rgb = F.interpolate(model.unsqueeze(0), (512, 512), mode="bilinear", align_corners=False)
+        model_latents = vae.config.scaling_factor * vae.encode(rgb_BCHW_512).latent_dist.sample()
+    return model_rgb, model_latents

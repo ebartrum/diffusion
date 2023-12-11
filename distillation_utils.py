@@ -5,14 +5,6 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import logging
-from diffusers.models.attention_processor import (
-    AttnAddedKVProcessor,
-    AttnAddedKVProcessor2_0,
-    LoRAAttnAddedKVProcessor,
-    LoRAAttnProcessor,
-    SlicedAttnAddedKVProcessor,
-)
-from diffusers.loaders import AttnProcsLayers
 
 def setup_logger(output_dir):
     logging.getLogger('matplotlib.font_manager').disabled = True

@@ -124,13 +124,20 @@ def main(cfg):
                     guidance_scale=cfg.guidance_scale,
                     multisteps=cfg.multisteps, scheduler=scheduler,
                     half_inference=cfg.half_inference)
+
         grad = noise_pred - noise
         grad = torch.nan_to_num(grad)
 
-        ## weighting
-        grad *= loss_weights[int(t)]
-        target = (model_latents - grad).detach()
-        loss = 0.5 * F.mse_loss(model_latents, target, reduction="mean")
+        loss = 0
+        if cfg.loss.sds:
+            ## weighting
+            grad *= loss_weights[int(t)]
+            target = (model_latents - grad).detach()
+            sds_loss = 0.5 * F.mse_loss(model_latents, target, reduction="mean")
+            loss = loss + cfg.loss.sds*sds_loss
+        if cfg.loss.BGTplus:
+            import ipdb;ipdb.set_trace()
+
         loss.backward()
         optimizer.step()
         torch.cuda.empty_cache()

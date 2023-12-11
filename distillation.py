@@ -90,10 +90,10 @@ def main(cfg):
     scheduler.set_timesteps(num_train_timesteps)
 
     ### instantiate model
-    if cfg.rgb_as_latents:
+    if cfg.distillation_space == "latent":
         model = torch.randn((unet.config.in_channels,
              cfg.height // 8, cfg.width // 8))
-    else:
+    elif cfg.distillation_space == "rgb":
         model = torch.randn((3, cfg.height, cfg.width))
 
     model = model.to(device, dtype=dtype)
@@ -115,7 +115,7 @@ def main(cfg):
 
     for step, chosen_t in enumerate(pbar):
         t = torch.tensor([chosen_t]).to(device)
-        model_latents = get_latents(model, vae, cfg.rgb_as_latents)
+        model_latents = get_latents(model, vae, cfg.distillation_space)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()

@@ -129,12 +129,12 @@ def main(cfg):
     pbar = tqdm(chosen_ts)
 
     for step, chosen_t in enumerate(pbar):
-        latents = get_latents(particles, vae, cfg.rgb_as_latents)
+        model_latents = get_latents(particles, vae, cfg.rgb_as_latents)
         t = torch.tensor([chosen_t]).to(device)
-        noise = torch.randn_like(latents)
-        noisy_latents = scheduler.add_noise(latents, noise, t)
+        noise = torch.randn_like(model_latents)
+        noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()
-        noise_pred = predict_noise(unet, noisy_latents, noise,
+        noise_pred = predict_noise(unet, noisy_model_latents, noise,
                     text_embeddings_vsd, t, \
                     guidance_scale=cfg.guidance_scale,
                     multisteps=cfg.multisteps, scheduler=scheduler,
@@ -145,8 +145,8 @@ def main(cfg):
 
         ## weighting
         grad *= loss_weights[int(t)]
-        target = (latents - grad).detach()
-        loss = 0.5 * F.mse_loss(latents, target, reduction="mean")
+        target = (model_latents - grad).detach()
+        loss = 0.5 * F.mse_loss(model_latents, target, reduction="mean")
         loss.backward()
         optimizer.step()
         torch.cuda.empty_cache()
@@ -159,9 +159,9 @@ def main(cfg):
         ######## Evaluation and log metric #########
         if cfg.log_steps and (step % cfg.log_steps == 0 or step == (cfg.num_steps-1)):
             log_steps.append(step)
-            tmp_latents = 1 / vae.config.scaling_factor * latents.clone().detach()
+            tmp_latents = 1 / vae.config.scaling_factor * model_latents.clone().detach()
             pred_latents = scheduler.step(noise_pred, t,
-                    noisy_latents).pred_original_sample.to(dtype).clone().detach()
+                    noisy_model_latents).pred_original_sample.to(dtype).clone().detach()
             with torch.no_grad():
                 if cfg.half_inference:
                     tmp_latents = tmp_latents.half()

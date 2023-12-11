@@ -56,7 +56,6 @@ def main(cfg):
     logger.info(f'Using device: {device}; version: {str(torch.version.cuda)}')
     if device.type == 'cuda':
         logger.info(torch.cuda.get_device_name(0))
-
     #######################################################################################
     ### load model
     vae = AutoencoderKL.from_pretrained(cfg.model_id, subfolder="vae",
@@ -100,19 +99,17 @@ def main(cfg):
     loss_weights = get_loss_weights(scheduler.betas, cfg)
     scheduler.set_timesteps(num_train_timesteps)
 
-    ### initialize models
+    ### instantiate model
     if cfg.rgb_as_latents:
-        models = torch.randn((1, unet.config.in_channels,
+        model = torch.randn((unet.config.in_channels,
              cfg.height // 8, cfg.width // 8))
     else:
-        models = torch.randn((1, 3, cfg.height, cfg.width))
-    models = models.to(device, dtype=dtype)
-    models.requires_grad = True
-    models_to_optimize = [models]
-
-    total_parameters = sum(p.numel() for p in models_to_optimize if p.requires_grad)
-    print(f'Total number of trainable parameters in models: {total_parameters}')
-    optimizer = torch.optim.Adam(models_to_optimize, lr=cfg.lr)
+        model = torch.randn((3, cfg.height, cfg.width))
+    model = model.to(device, dtype=dtype)
+    model.requires_grad = True
+    total_parameters = sum(p.numel() for p in model if p.requires_grad)
+    print(f'Total number of trainable parameters: {total_parameters}')
+    optimizer = torch.optim.Adam([model], lr=cfg.lr)
 
     #######################################################################################
     ############################# Main optimization loop ##############################
@@ -127,7 +124,7 @@ def main(cfg):
 
     for step, chosen_t in enumerate(pbar):
         t = torch.tensor([chosen_t]).to(device)
-        model_latents = get_latents(models, vae, cfg.rgb_as_latents)
+        model_latents = get_latents(model, vae, cfg.rgb_as_latents)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()

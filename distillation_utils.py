@@ -177,10 +177,10 @@ def predict_noise(unet, noisy_latents, noise, text_embeddings,
 
     return noise_pred
 
-def get_latents(particles, vae, rgb_as_latents=False):
+def get_latents(model, vae, rgb_as_latents=False):
     if rgb_as_latents:
-        latents = F.interpolate(particles, (64, 64), mode="bilinear", align_corners=False)
+        latents = F.interpolate(model.unsqueeze(0), (64, 64), mode="bilinear", align_corners=False)
     else:
-        rgb_BCHW_512 = F.interpolate(particles, (512, 512), mode="bilinear", align_corners=False)
+        rgb_BCHW_512 = F.interpolate(model.unsqueeze(0), (512, 512), mode="bilinear", align_corners=False)
         latents = vae.config.scaling_factor * vae.encode(rgb_BCHW_512).latent_dist.sample()
     return latents

@@ -48,7 +48,7 @@ def main(cfg):
     if device.type == 'cuda':
         logger.info(torch.cuda.get_device_name(0))
     #######################################################################################
-    ### load model
+    ### load LDM
     vae = AutoencoderKL.from_pretrained(cfg.model_id, subfolder="vae",
             cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
     tokenizer = CLIPTokenizer.from_pretrained(cfg.model_id, subfolder="tokenizer",
@@ -58,7 +58,6 @@ def main(cfg):
     scheduler = DDIMScheduler.from_pretrained(
            cfg.model_id, subfolder="scheduler",
            cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
-
     if cfg.half_inference:
         unet = unet.half()
         vae = vae.half()
@@ -69,12 +68,14 @@ def main(cfg):
     vae.requires_grad_(False)
     text_encoder.requires_grad_(False)
     unet.requires_grad_(False)
+
     scheduler.betas = scheduler.betas.to(device)
     scheduler.alphas = scheduler.alphas.to(device)
     scheduler.alphas_cumprod = scheduler.alphas_cumprod.to(device)
 
-    ### get text embedding
-    text_input = tokenizer([cfg.prompt], padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt")
+    text_input = tokenizer([cfg.prompt], padding="max_length",
+           max_length=tokenizer.model_max_length, truncation=True,
+           return_tensors="pt")
     with torch.no_grad():
         text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
     max_length = text_input.input_ids.shape[-1]
@@ -102,14 +103,11 @@ def main(cfg):
     print(f'Total number of trainable parameters: {total_parameters}')
     optimizer = torch.optim.Adam([model], lr=cfg.lr)
 
-    #######################################################################################
-    ############################# Main optimization loop ##############################
     train_loss_values = []
     ave_train_loss_values = []
     image_progress = []
     first_iteration = True
     logger.info("################# Metrics: ####################")
-    ######## t schedule #########
     chosen_ts = get_t_schedule(num_train_timesteps, cfg, loss_weights)
     pbar = tqdm(chosen_ts)
 
@@ -124,11 +122,11 @@ def main(cfg):
                     guidance_scale=cfg.guidance_scale,
                     multisteps=cfg.multisteps, scheduler=scheduler,
                     half_inference=cfg.half_inference)
+
         loss = 0
         if cfg.loss.sds:
             grad = noise_pred - noise
             grad = torch.nan_to_num(grad)
-            ## weighting
             grad *= loss_weights[int(t)]
             target = (model_latents - grad).detach()
             sds_loss = 0.5 * F.mse_loss(model_latents, target, reduction="mean")

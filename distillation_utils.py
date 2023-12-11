@@ -1,9 +1,9 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 import numpy as np
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-import torch.nn.functional as F
 import logging
 
 def setup_logger(output_dir):

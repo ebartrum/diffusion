@@ -49,8 +49,7 @@ def main(cfg):
         f.write(OmegaConf.to_yaml(cfg))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    dtype = torch.float32 # use float32 by default
-    image_name = cfg.prompt.replace(' ', '_')
+    dtype = torch.float32
 
     logger = setup_logger(output_dir)
     logger.info(f'[INFO] Cmdline: '+' '.join(sys.argv))
@@ -190,7 +189,7 @@ def main(cfg):
             writer.append_data(img)
         writer.close()
         concatenated_images = torch.cat(image_progress, dim=0)
-        save_image(concatenated_images, f'{output_dir}/{image_name}_prgressive.png')
+        save_image(concatenated_images, f'{output_dir}/train_progress.png')
 
     image = get_images(particles, vae, cfg.rgb_as_latents)
     save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/final_image.png')

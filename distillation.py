@@ -177,13 +177,11 @@ def main(cfg):
     if cfg.log_progress:
         images = sorted(Path(output_dir).glob(f"step*.png"))
         images = [imageio.imread(image) for image in images]
-        writer = imageio.get_writer(f'{output_dir}/train_progress.mp4',
+        writer = imageio.get_writer(f'{output_dir}/progress.mp4',
                 fps=10, codec='mpeg4')
         for img in images:
             writer.append_data(img)
         writer.close()
-        concatenated_images = torch.cat(image_progress, dim=0)
-        save_image(concatenated_images, f'{output_dir}/train_progress.png')
 
     image = get_images(particles, vae, cfg.rgb_as_latents)
     save_image((image/2+0.5).clamp(0, 1), f'{output_dir}/final_image.png')

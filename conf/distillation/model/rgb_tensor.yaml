@@ -1,2 +1,2 @@
 # @package model
-distillation_space: rgb
+_target_: models.RGBTensor

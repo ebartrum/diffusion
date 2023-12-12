@@ -24,6 +24,7 @@ from transformers import logging as transformers_logging
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers import DDIMScheduler
 import hydra
+from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from utils import SLURM_OUTPUT_DIR, seed_all
 
@@ -90,17 +91,13 @@ def main(cfg):
     scheduler.set_timesteps(num_train_timesteps)
 
     ### instantiate model
-    if cfg.model.distillation_space == "latent":
-        model = torch.randn((unet.config.in_channels,
-             cfg.height // 8, cfg.width // 8))
-    elif cfg.model.distillation_space == "rgb":
-        model = torch.randn((3, cfg.height, cfg.width))
-
+    model = instantiate(cfg.model)
     model = model.to(device, dtype=dtype)
-    model.requires_grad = True
-    total_parameters = sum(p.numel() for p in model if p.requires_grad)
+    model.train()
+
+    total_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'Total number of trainable parameters: {total_parameters}')
-    optimizer = torch.optim.Adam([model], lr=cfg.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr)
 
     train_loss_values = []
     ave_train_loss_values = []
@@ -112,8 +109,7 @@ def main(cfg):
 
     for step, chosen_t in enumerate(pbar):
         t = torch.tensor([chosen_t]).to(device)
-        model_rgb, model_latents = get_outputs(model, vae,
-               cfg.model.distillation_space)
+        model_rgb, model_latents = get_outputs(model, vae)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()

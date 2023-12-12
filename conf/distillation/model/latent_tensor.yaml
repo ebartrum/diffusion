@@ -1,2 +1,2 @@
 # @package model
-distillation_space: latent
+_target_: models.LatentTensor

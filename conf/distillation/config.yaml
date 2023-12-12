@@ -1,0 +1,29 @@
+prompt: a photograph of an astronaut riding a horse
+seed: 1024
+log_steps: 50
+log_progress: True
+half_inference: False
+num_steps: 1000
+t_end: 980
+t_start: 20
+multisteps: 1
+t_schedule: descend
+height: 512
+width: 512
+distillation_space: latent
+guidance_scale: 7.5
+lr: 0.01
+loss_weight_type: none
+loss:
+  sds: 1
+  BGTplus: 0
+local_files_only: True
+model_id: stabilityai/stable-diffusion-2-1-base
+model_dir: ./models
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+defaults:
+  - _self_
+  - override hydra/job_logging: disabled

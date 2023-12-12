@@ -1,5 +1,5 @@
 from diffusers import StableDiffusionPipeline, DDIMScheduler
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
 from utils import SLURM_OUTPUT_DIR
 import hydra
 import yaml
@@ -21,9 +21,9 @@ def main(cfg):
     device = "cuda"
     ddim = DDIMScheduler.from_pretrained(
            cfg.model_id, subfolder="scheduler",
-           cache_dir=cfg.model_dir, local_files_only=True)
+           cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only)
     pipe = StableDiffusionPipeline.from_pretrained(cfg.model_id,schedule=ddim,
-           cache_dir=cfg.model_dir, local_files_only=True).to(device)
+           cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only).to(device)
 
     generator = torch.Generator(device=device).manual_seed(42)
     pipe_output = pipe(

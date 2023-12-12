@@ -2,6 +2,6 @@ out
 data
 __pycache__
 notes.txt
-models
+hf-models
 conf/prompts
 work_dir

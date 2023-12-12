@@ -18,7 +18,7 @@ loss:
   BGTplus: 0
 local_files_only: True
 model_id: stabilityai/stable-diffusion-2-1-base
-model_dir: ./models
+model_dir: ./hf-models
 hydra:
   output_subdir: null
   run:

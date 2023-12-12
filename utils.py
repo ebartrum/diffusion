@@ -192,6 +192,6 @@ def get_outputs(model, vae):
         model_latents = F.interpolate(model_out.unsqueeze(0), (64, 64), mode="bilinear", align_corners=False).to(vae.dtype)
         model_rgb = vae.decode(model_latents/vae.config.scaling_factor).sample
     elif model.distillation_space=="rgb":
-        model_rgb = F.interpolate(model_out.unsqueeze(0), (512, 512), mode="bilinear", align_corners=False)
-        model_latents = vae.config.scaling_factor * vae.encode(rgb_BCHW_512).latent_dist.sample()
+        model_rgb = F.interpolate(model_out.unsqueeze(0), (512, 512), mode="bilinear", align_corners=False).to(vae.dtype)
+        model_latents = vae.config.scaling_factor * vae.encode(model_rgb).latent_dist.sample()
     return model_rgb, model_latents

@@ -11,7 +11,7 @@ from tqdm import tqdm
 from datetime import datetime
 import imageio
 from pathlib import Path
-from distillation_utils import (
+from utils import (
             get_t_schedule,
             get_loss_weights,
             predict_noise,

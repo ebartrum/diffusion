@@ -1,0 +1,15 @@
+Bootstrap: docker
+From: nvcr.io/nvidia/pytorch:21.02-py3
+
+%help
+    An image file for running diffusion experiments
+
+%labels
+    CREATOR Ed
+
+%files
+    requirements.txt
+
+%post
+    pip install -r requirements.txt
+    pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch

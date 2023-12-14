@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import json
+import tinycudann as tcnn
 
 class RGBTensor(nn.Module):
     def __init__(self, img_res=512):
@@ -20,3 +22,30 @@ class LatentTensor(nn.Module):
 
     def generate(self):
         return self.output_tensor
+
+class InstantNGP(nn.Module):
+    def __init__(self, img_res=512, distillation_space="rgb"):
+        super().__init__()
+        self.distillation_space = distillation_space
+        self.out_features = 4 if distillation_space=="latent" else 3
+        config_path = "conf/config_hash.json"
+        with open(config_path) as config_file:
+            config = json.load(config_file)
+        self.net = tcnn.NetworkWithInputEncoding(
+                n_input_dims=2, n_output_dims=self.out_features,
+                encoding_config=config["encoding"],
+                network_config=config["network"])
+        self.output_size = img_res // 8 if distillation_space=="rgb" else img_res
+        resolution = img_res, img_res
+        half_dx =  0.5 / self.output_size
+        half_dy =  0.5 / self.output_size
+        xs = torch.linspace(half_dx, 1-half_dx, self.output_size)
+        ys = torch.linspace(half_dy, 1-half_dy, self.output_size)
+        xv, yv = torch.meshgrid([xs, ys])
+        xy = torch.stack((yv.flatten(), xv.flatten())).t()
+        self.xy = torch.nn.parameter.Parameter(xy, requires_grad=False)
+
+    def generate(self):
+        out = self.net(self.xy).resize(self.output_size,self.output_size,
+               self.out_features).permute(2,0,1)
+        return out

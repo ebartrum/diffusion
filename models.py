@@ -31,10 +31,10 @@ class InstantNGP(nn.Module):
         config_path = "conf/config_hash.json"
         with open(config_path) as config_file:
             config = json.load(config_file)
-        self.net = tcnn.NetworkWithInputEncoding(
-                n_input_dims=2, n_output_dims=self.out_features,
-                encoding_config=config["encoding"],
-                network_config=config["network"])
+        self.encoding = tcnn.Encoding(n_input_dims=2, encoding_config=config["encoding"])
+        self.network = tcnn.Network(n_input_dims=self.encoding.n_output_dims,
+               n_output_dims=self.out_features, network_config=config["network"])
+        self.net = torch.nn.Sequential(self.encoding, self.network)
         self.output_size = img_res // 8 if distillation_space=="rgb" else img_res
         resolution = img_res, img_res
         half_dx =  0.5 / self.output_size

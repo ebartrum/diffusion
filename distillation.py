@@ -96,11 +96,9 @@ def main(cfg):
     model.train()
 
     total_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    parameter_groups = model.parameter_groups(cfg.lr)
     print(f'Total number of trainable parameters: {total_parameters}')
-    optimizer = torch.optim.Adam([
-                {'params': model.encoding.parameters(), 'lr': 1e-2},
-                {'params': model.network.parameters()}
-            ], lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameter_groups(cfg.lr), lr=cfg.lr)
 
     train_loss_values = []
     ave_train_loss_values = []

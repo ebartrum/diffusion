@@ -13,6 +13,9 @@ class RGBTensor(nn.Module):
     def generate(self):
         return self.output_tensor
 
+    def parameter_groups(self, lr):
+        return self.parameters()
+
 class LatentTensor(nn.Module):
     def __init__(self, img_res=512):
         super().__init__()
@@ -22,6 +25,9 @@ class LatentTensor(nn.Module):
 
     def generate(self):
         return self.output_tensor
+
+    def parameter_groups(self, lr):
+        return self.parameters()
 
 class InstantNGP(nn.Module):
     def __init__(self, img_res=512, distillation_space="rgb"):
@@ -44,6 +50,10 @@ class InstantNGP(nn.Module):
         xv, yv = torch.meshgrid([xs, ys])
         xy = torch.stack((yv.flatten(), xv.flatten())).t()
         self.xy = torch.nn.parameter.Parameter(xy, requires_grad=False)
+
+    def parameter_groups(self, lr):
+        return [{'params': self.encoding.parameters(), 'lr': 10*lr},
+                {'params': self.network.parameters(), 'lr': lr}]
 
     def generate(self):
         out = self.net(self.xy).resize(self.output_size,self.output_size,

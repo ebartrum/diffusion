@@ -81,7 +81,7 @@ def main(cfg):
            return_tensors="pt")
     with torch.no_grad():
         text_embeddings1 = text_encoder(text_input1.input_ids.to(device))[0]
-        text_embeddings2 = text_encoder(text_input1.input_ids.to(device))[0]
+        text_embeddings2 = text_encoder(text_input2.input_ids.to(device))[0]
     max_length = text_input1.input_ids.shape[-1]
     uncond_input = tokenizer([""], padding="max_length",
          max_length=max_length, return_tensors="pt")

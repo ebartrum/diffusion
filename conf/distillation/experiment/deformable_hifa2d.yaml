@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - override /model: deformable_ingp
+
+multisteps: 4
+guidance_scale: 35
+lr: 1e-3
+loss:
+  sds: 0
+  BGTplus: 1

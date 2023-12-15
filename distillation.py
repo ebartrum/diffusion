@@ -82,6 +82,13 @@ def main(cfg):
     with torch.no_grad():
         text_embeddings1 = text_encoder(text_input1.input_ids.to(device))[0]
         text_embeddings2 = text_encoder(text_input2.input_ids.to(device))[0]
+
+    for i in range(77):
+        if not torch.allclose(text_embeddings1[:,i,:], text_embeddings2[:,i,:]):
+            deformation_embedding_index = i
+            print(f"deformation embedding index: {i}")
+            break
+
     max_length = text_input1.input_ids.shape[-1]
     uncond_input = tokenizer([""], padding="max_length",
          max_length=max_length, return_tensors="pt")
@@ -115,10 +122,12 @@ def main(cfg):
 
     for step, chosen_t in enumerate(pbar):
         current_text_embeddings = text_embeddings1 if step % 2 ==0 else text_embeddings2
+        current_deformation_embedding = current_text_embeddings[0,deformation_embedding_index]
+
         current_prompt_index = 0 if step % 2 == 0 else 1
         t = torch.tensor([chosen_t]).to(device)
         model_rgb, model_latents = get_outputs(model, vae,
-               prompt_index=current_prompt_index)
+               deformation_code=current_deformation_embedding)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()

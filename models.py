@@ -59,3 +59,22 @@ class InstantNGP(nn.Module):
         out = self.net(self.xy).resize(self.output_size,self.output_size,
                self.out_features).permute(2,0,1)
         return out
+
+class DeformableInstantNGP(InstantNGP):
+    def __init__(self, img_res=512, distillation_space="rgb"):
+        super().__init__(img_res, distillation_space)
+        self.deformation_net = None
+
+    def parameter_groups(self, lr):
+        return [{'params': self.encoding.parameters(), 'lr': 10*lr},
+                {'params': self.network.parameters(), 'lr': lr}]
+
+    def deformed_xy(self, deformation_code=None):
+        return self.xy
+        # import ipdb;ipdb.set_trace()
+
+    def generate(self, deformation_code=None):
+        deformed_xy = self.deformed_xy(deformation_code)
+        out = self.net(deformed_xy).resize(self.output_size,self.output_size,
+               self.out_features).permute(2,0,1)
+        return out

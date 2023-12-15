@@ -88,6 +88,9 @@ def main(cfg):
             deformation_embedding_index = i
             print(f"deformation embedding index: {i}")
             break
+        else:
+            deformation_embedding_index = -1
+            print("warning: deformations are the same")
 
     max_length = text_input1.input_ids.shape[-1]
     uncond_input = tokenizer([""], padding="max_length",

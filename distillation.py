@@ -115,9 +115,10 @@ def main(cfg):
 
     for step, chosen_t in enumerate(pbar):
         current_text_embeddings = text_embeddings1 if step % 2 ==0 else text_embeddings2
-
+        current_prompt_index = 0 if step % 2 == 0 else 1
         t = torch.tensor([chosen_t]).to(device)
-        model_rgb, model_latents = get_outputs(model, vae)
+        model_rgb, model_latents = get_outputs(model, vae,
+               prompt_index=current_prompt_index)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()

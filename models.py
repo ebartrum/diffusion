@@ -10,7 +10,7 @@ class RGBTensor(nn.Module):
         self.output_tensor = torch.nn.parameter.Parameter(
                 torch.randn((3, img_res, img_res)))
 
-    def generate(self):
+    def generate(self, prompt_index=0):
         return self.output_tensor
 
     def parameter_groups(self, lr):
@@ -23,7 +23,7 @@ class LatentTensor(nn.Module):
         self.output_tensor = torch.nn.parameter.Parameter(
                 torch.randn((4, img_res // 8, img_res // 8)))
 
-    def generate(self):
+    def generate(self, prompt_index=0):
         return self.output_tensor
 
     def parameter_groups(self, lr):
@@ -55,7 +55,7 @@ class InstantNGP(nn.Module):
         return [{'params': self.encoding.parameters(), 'lr': 10*lr},
                 {'params': self.network.parameters(), 'lr': lr}]
 
-    def generate(self):
+    def generate(self, prompt_index=0):
         out = self.net(self.xy).resize(self.output_size,self.output_size,
                self.out_features).permute(2,0,1)
         return out

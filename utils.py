@@ -186,8 +186,8 @@ def predict_noise(unet, noisy_latents, noise, text_embeddings,
                          half_inference=half_inference)
     return noise_pred.to(unet.dtype)
 
-def get_outputs(model, vae):
-    model_out = model.generate()
+def get_outputs(model, vae, **kwargs):
+    model_out = model.generate(**kwargs)
     if model.distillation_space=="latent":
         model_latents = F.interpolate(model_out.unsqueeze(0), (64, 64), mode="bilinear", align_corners=False).to(vae.dtype)
         model_rgb = vae.decode(model_latents/vae.config.scaling_factor).sample

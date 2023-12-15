@@ -73,17 +73,17 @@ def main(cfg):
     scheduler.alphas = scheduler.alphas.to(device)
     scheduler.alphas_cumprod = scheduler.alphas_cumprod.to(device)
 
-    text_input = tokenizer([cfg.prompt], padding="max_length",
+    text_input1 = tokenizer([cfg.prompt1], padding="max_length",
            max_length=tokenizer.model_max_length, truncation=True,
            return_tensors="pt")
     with torch.no_grad():
-        text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
-    max_length = text_input.input_ids.shape[-1]
+        text_embeddings = text_encoder(text_input1.input_ids.to(device))[0]
+    max_length = text_input1.input_ids.shape[-1]
     uncond_input = tokenizer([""], padding="max_length",
          max_length=max_length, return_tensors="pt")
     with torch.no_grad():
         uncond_embeddings = text_encoder(uncond_input.input_ids.to(device))[0]
-    text_embeddings_vsd = torch.cat([uncond_embeddings, text_embeddings])
+    text_embeddings1 = torch.cat([uncond_embeddings, text_embeddings])
 
     ### weight loss
     num_train_timesteps = len(scheduler.betas)
@@ -115,7 +115,7 @@ def main(cfg):
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()
         noise_pred = predict_noise(unet, noisy_model_latents, noise,
-                    text_embeddings_vsd, t, \
+                    text_embeddings1, t, \
                     guidance_scale=cfg.guidance_scale,
                     multisteps=cfg.multisteps, scheduler=scheduler,
                     half_inference=cfg.half_inference)

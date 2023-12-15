@@ -76,14 +76,19 @@ def main(cfg):
     text_input1 = tokenizer([cfg.prompt1], padding="max_length",
            max_length=tokenizer.model_max_length, truncation=True,
            return_tensors="pt")
+    text_input2 = tokenizer([cfg.prompt2], padding="max_length",
+           max_length=tokenizer.model_max_length, truncation=True,
+           return_tensors="pt")
     with torch.no_grad():
-        text_embeddings = text_encoder(text_input1.input_ids.to(device))[0]
+        text_embeddings1 = text_encoder(text_input1.input_ids.to(device))[0]
+        text_embeddings2 = text_encoder(text_input1.input_ids.to(device))[0]
     max_length = text_input1.input_ids.shape[-1]
     uncond_input = tokenizer([""], padding="max_length",
          max_length=max_length, return_tensors="pt")
     with torch.no_grad():
         uncond_embeddings = text_encoder(uncond_input.input_ids.to(device))[0]
-    text_embeddings1 = torch.cat([uncond_embeddings, text_embeddings])
+    text_embeddings1 = torch.cat([uncond_embeddings, text_embeddings1])
+    text_embeddings2 = torch.cat([uncond_embeddings, text_embeddings2])
 
     ### weight loss
     num_train_timesteps = len(scheduler.betas)
@@ -109,6 +114,8 @@ def main(cfg):
     pbar = tqdm(chosen_ts)
 
     for step, chosen_t in enumerate(pbar):
+        current_text_embeddings = text_embeddings1 if step % 2 ==0 else text_embeddings2
+
         t = torch.tensor([chosen_t]).to(device)
         model_rgb, model_latents = get_outputs(model, vae)
         noise = torch.randn_like(model_latents)

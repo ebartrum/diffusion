@@ -30,7 +30,8 @@ class LatentTensor(nn.Module):
         return self.parameters()
 
 class InstantNGP(nn.Module):
-    def __init__(self, img_res=512, distillation_space="rgb"):
+    def __init__(self, img_res=512, distillation_space="rgb",
+             noise_anneal_steps=200):
         super().__init__()
         self.distillation_space = distillation_space
         self.out_features = 4 if distillation_space=="latent" else 3
@@ -50,6 +51,7 @@ class InstantNGP(nn.Module):
         xv, yv = torch.meshgrid([xs, ys])
         xy = torch.stack((yv.flatten(), xv.flatten())).t()
         self.xy = torch.nn.parameter.Parameter(xy, requires_grad=False)
+        self.noise_anneal_steps = noise_anneal_steps
 
     def parameter_groups(self, lr):
         return [{'params': self.encoding.parameters(), 'lr': 10*lr},
@@ -57,7 +59,8 @@ class InstantNGP(nn.Module):
 
     def apply_noise_annealing(self, out, step):
         noise = torch.randn_like(out)
-        noise_level = torch.clip(torch.tensor(1-(step/200)), 0, 1)
+        noise_level = torch.clip(
+                torch.tensor(1-(step/self.noise_anneal_steps)), 0, 1)
         out = noise_level*noise + (1-noise_level)*out
 
     def generate(self, deformation_code=None, step=None):
@@ -68,8 +71,8 @@ class InstantNGP(nn.Module):
         return out
 
 class DeformableInstantNGP(InstantNGP):
-    def __init__(self, img_res=512, distillation_space="rgb"):
-        super().__init__(img_res, distillation_space)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.deformation_net = None
 
     def parameter_groups(self, lr):

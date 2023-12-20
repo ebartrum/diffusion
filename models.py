@@ -10,7 +10,7 @@ class RGBTensor(nn.Module):
         self.output_tensor = torch.nn.parameter.Parameter(
                 torch.randn((3, img_res, img_res)))
 
-    def generate(self, prompt_index=0):
+    def generate(self, deformation_code=None):
         return self.output_tensor
 
     def parameter_groups(self, lr):
@@ -23,7 +23,7 @@ class LatentTensor(nn.Module):
         self.output_tensor = torch.nn.parameter.Parameter(
                 torch.randn((4, img_res // 8, img_res // 8)))
 
-    def generate(self, prompt_index=0):
+    def generate(self, deformation_code=None):
         return self.output_tensor
 
     def parameter_groups(self, lr):

@@ -62,6 +62,7 @@ class InstantNGP(nn.Module):
         noise_level = torch.clip(
                 torch.tensor(1-(step/self.noise_anneal_steps)), 0, 1)
         out = noise_level*noise + (1-noise_level)*out
+        return out
 
     def generate(self, deformation_code=None, step=None):
         out = self.net(self.xy).resize(self.output_size,self.output_size,

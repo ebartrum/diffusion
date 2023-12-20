@@ -130,7 +130,7 @@ def main(cfg):
         current_prompt_index = 0 if step % 2 == 0 else 1
         t = torch.tensor([chosen_t]).to(device)
         model_rgb, model_latents = get_outputs(model, vae,
-               deformation_code=current_deformation_embedding)
+               deformation_code=current_deformation_embedding, step=step)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()

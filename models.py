@@ -10,7 +10,7 @@ class RGBTensor(nn.Module):
         self.output_tensor = torch.nn.parameter.Parameter(
                 torch.randn((3, img_res, img_res)))
 
-    def generate(self, deformation_code=None):
+    def generate(self, deformation_code=None, step=None):
         return self.output_tensor
 
     def parameter_groups(self, lr):
@@ -23,7 +23,7 @@ class LatentTensor(nn.Module):
         self.output_tensor = torch.nn.parameter.Parameter(
                 torch.randn((4, img_res // 8, img_res // 8)))
 
-    def generate(self, deformation_code=None):
+    def generate(self, deformation_code=None, step=None):
         return self.output_tensor
 
     def parameter_groups(self, lr):
@@ -55,9 +55,16 @@ class InstantNGP(nn.Module):
         return [{'params': self.encoding.parameters(), 'lr': 10*lr},
                 {'params': self.network.parameters(), 'lr': lr}]
 
-    def generate(self, prompt_index=0):
+    def apply_noise_annealing(self, out, step):
+        noise = torch.randn_like(out)
+        noise_level = torch.clip(torch.tensor(1-(step/200)), 0, 1)
+        out = noise_level*noise + (1-noise_level)*out
+
+    def generate(self, deformation_code=None, step=None):
         out = self.net(self.xy).resize(self.output_size,self.output_size,
                self.out_features).permute(2,0,1)
+        if step is not None:
+            out = self.apply_noise_annealing(out, step)
         return out
 
 class DeformableInstantNGP(InstantNGP):
@@ -71,10 +78,11 @@ class DeformableInstantNGP(InstantNGP):
 
     def deformed_xy(self, deformation_code=None):
         return self.xy
-        # import ipdb;ipdb.set_trace()
 
-    def generate(self, deformation_code=None):
+    def generate(self, deformation_code=None, step=None):
         deformed_xy = self.deformed_xy(deformation_code)
         out = self.net(deformed_xy).resize(self.output_size,self.output_size,
                self.out_features).permute(2,0,1)
+        if step is not None:
+            out = self.apply_noise_annealing(out, step)
         return out

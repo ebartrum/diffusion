@@ -41,7 +41,7 @@ class InstantNGP(nn.Module):
         self.network = tcnn.Network(n_input_dims=self.encoding.n_output_dims,
                n_output_dims=self.out_features, network_config=config["network"])
         self.net = torch.nn.Sequential(self.encoding, self.network)
-        self.output_size = img_res // 8 if distillation_space=="rgb" else img_res
+        self.output_size = img_res // 8 if distillation_space=="latent" else img_res
         resolution = img_res, img_res
         half_dx =  0.5 / self.output_size
         half_dy =  0.5 / self.output_size

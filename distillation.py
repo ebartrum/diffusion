@@ -135,7 +135,7 @@ def main(cfg):
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()
         noise_pred = predict_noise(unet, noisy_model_latents, noise,
-                    text_embeddings1, t, \
+                    current_text_embeddings, t, \
                     guidance_scale=cfg.guidance_scale,
                     multisteps=cfg.multisteps, scheduler=scheduler,
                     half_inference=cfg.half_inference)

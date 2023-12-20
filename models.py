@@ -74,17 +74,44 @@ class InstantNGP(nn.Module):
 class DeformableInstantNGP(InstantNGP):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.deformation_net = None
+        self.max_deformations = torch.nn.parameter.Parameter(
+                torch.cat([self.xy, 1-self.xy], 1).min(1).values,
+                requires_grad=False)
+        deformation_encoding_cfg = {
+            "otype": "TriangleWave",
+            "n_frequencies": 12}
+        deformation_network_cfg = {
+           "otype": "FullyFusedMLP",
+           "activation": "Sine",
+           "output_activation": "None",
+           "n_neurons": 32,
+           "n_hidden_layers": 1}
+        self.deformation_encoding = tcnn.Encoding(
+            n_input_dims=2, encoding_config=deformation_encoding_cfg)
+        self.deformation_network = tcnn.Network(
+                n_input_dims=self.deformation_encoding.n_output_dims,
+               n_output_dims=2,
+               network_config=deformation_network_cfg)
+        self.deformation_net = torch.nn.Sequential(self.deformation_encoding,
+                   self.deformation_network)
 
     def parameter_groups(self, lr):
         return [{'params': self.encoding.parameters(), 'lr': 10*lr},
-                {'params': self.network.parameters(), 'lr': lr}]
+                {'params': self.deformation_encoding.parameters(), 'lr': 10*lr},
+                {'params': self.network.parameters(), 'lr': lr},
+                {'params': self.deformation_network.parameters(), 'lr': lr},
+                ]
 
-    def deformed_xy(self, deformation_code=None):
-        return self.xy
+    def deformed_xy(self, deformation_code=None, step=None):
+        deformation_linear = self.deformation_net(self.xy)
+        max_amplitude = self.max_deformations
+        if step is not None:
+            max_amplitude = max_amplitude * (torch.tensor(step)/200).clip(0,1)
+        deformation_offset = torch.tanh(deformation_linear) * max_amplitude.unsqueeze(1)
+        return self.xy + deformation_offset
 
     def generate(self, deformation_code=None, step=None):
-        deformed_xy = self.deformed_xy(deformation_code)
+        deformed_xy = self.deformed_xy(deformation_code, step)
         out = self.net(deformed_xy).resize(self.output_size,self.output_size,
                self.out_features).permute(2,0,1)
         if step is not None:

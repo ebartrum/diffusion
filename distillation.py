@@ -117,11 +117,10 @@ def main(cfg):
     train_loss_values = []
     ave_train_loss_values = []
     image_progress = []
-    chosen_ts = get_t_schedule(num_train_timesteps, cfg, loss_weights)
-    pbar = tqdm(chosen_ts)
+    ts = get_t_schedule(num_train_timesteps, cfg, device, loss_weights)
+    pbar = tqdm(ts)
 
-    for step, chosen_t in enumerate(pbar):
-        t = torch.tensor([chosen_t]).to(device)
+    for step, t in enumerate(pbar):
         model_rgb, model_latents = get_outputs(model, vae)
         noise = torch.randn_like(model_latents)
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)

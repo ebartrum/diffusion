@@ -83,7 +83,6 @@ def main(cfg):
     text_encoder.requires_grad_(False)
     unet.requires_grad_(False)
 
-    vis_loggers = [vis.DistilTargetLogger(output_dir=output_dir, total_steps=cfg.num_steps)]
 
     scheduler.betas = scheduler.betas.to(device)
     scheduler.alphas = scheduler.alphas.to(device)
@@ -99,7 +98,7 @@ def main(cfg):
          max_length=max_length, return_tensors="pt")
     with torch.no_grad():
         uncond_embeddings = text_encoder(uncond_input.input_ids.to(device))[0]
-    text_embeddings_vsd = torch.cat([uncond_embeddings, text_embeddings])
+    text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
 
     ### weight loss
     num_train_timesteps = len(scheduler.betas)
@@ -110,6 +109,11 @@ def main(cfg):
     model = instantiate(cfg.model)
     model = model.to(device, dtype=dtype)
     model.train()
+
+    vis_loggers = [vis.DistilTargetLogger(cfg, model, unet, vae, scheduler,
+              text_embeddings=text_embeddings,
+              output_dir=output_dir,
+              total_steps=cfg.num_steps)]
 
     total_parameters = sum(p.numel() for p in model.parameters() if
            p.requires_grad)
@@ -129,11 +133,10 @@ def main(cfg):
         noisy_model_latents = scheduler.add_noise(model_latents, noise, t)
         optimizer.zero_grad()
         noise_pred = predict_noise(unet, noisy_model_latents, noise,
-                    text_embeddings_vsd, t, \
+                    text_embeddings, t, \
                     guidance_scale=cfg.guidance_scale,
                     multisteps=cfg.multisteps, scheduler=scheduler,
                     half_inference=cfg.half_inference)
-
         loss = 0
         if cfg.loss.sds:
             grad = noise_pred - noise
@@ -164,27 +167,11 @@ def main(cfg):
         optimizer.zero_grad()
 
         ######## Logging #########
+        model.eval()
         for vis_logger in vis_loggers:
             if vis_logger.is_log_step(step):
-                vis_logger.log_img(step)
-
-        if cfg.log_steps and (step % cfg.log_steps == 0 or
-                step == (cfg.num_steps-1)):
-            target_latents = scheduler.step(noise_pred, t,
-                    noisy_model_latents).pred_original_sample\
-                            .to(dtype).clone().detach()
-            noise_pred = noise_pred.clone().detach()
-            with torch.no_grad():
-                if cfg.half_inference:
-                    target_latents = target_latents.half()
-                target_rgb = vae.decode(target_latents /
-                    vae.config.scaling_factor).sample.to(torch.float32)
-                log_img = torch.cat((model_rgb,target_rgb), dim=2)
-            image_progress.append((log_img/2+0.5).clamp(0, 1))
-            log_img_filename =\
-                    f'distil_target_{show_step(step, cfg.num_steps)}.png'
-            save_image((log_img/2+0.5).clamp(0, 1),
-                    os.path.join(output_dir, log_img_filename))
+                vis_logger.log_img(step, t)
+        model.train()
 
     images = sorted(Path(output_dir).glob(f"step*.png"))
     images = [imageio.imread(image) for image in images]

@@ -50,14 +50,27 @@ def main(cfg):
         logger.info(torch.cuda.get_device_name(0))
     ### load LDM
     vae = AutoencoderKL.from_pretrained(cfg.model_id, subfolder="vae",
-            cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
-    tokenizer = CLIPTokenizer.from_pretrained(cfg.model_id, subfolder="tokenizer",
-            cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
-    text_encoder = CLIPTextModel.from_pretrained(cfg.model_id, subfolder="text_encoder", cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
-    unet = UNet2DConditionModel.from_pretrained(cfg.model_id, subfolder="unet", cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
+            cache_dir=cfg.model_dir,
+            torch_dtype=dtype,
+            local_files_only=cfg.local_files_only)
+    tokenizer = CLIPTokenizer.from_pretrained(cfg.model_id,
+              subfolder="tokenizer",
+              cache_dir=cfg.model_dir,
+              torch_dtype=dtype,
+              local_files_only=cfg.local_files_only)
+    text_encoder = CLIPTextModel.from_pretrained(cfg.model_id,
+             subfolder="text_encoder",
+             cache_dir=cfg.model_dir,
+             torch_dtype=dtype,
+             local_files_only=cfg.local_files_only)
+    unet = UNet2DConditionModel.from_pretrained(cfg.model_id, subfolder="unet",
+            cache_dir=cfg.model_dir,
+            torch_dtype=dtype,
+            local_files_only=cfg.local_files_only)
     scheduler = DDIMScheduler.from_pretrained(
            cfg.model_id, subfolder="scheduler",
-           cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
+           cache_dir=cfg.model_dir, torch_dtype=dtype,
+           local_files_only=cfg.local_files_only)
     if cfg.half_inference:
         unet = unet.half()
         vae = vae.half()
@@ -95,7 +108,8 @@ def main(cfg):
     model = model.to(device, dtype=dtype)
     model.train()
 
-    total_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total_parameters = sum(p.numel() for p in model.parameters() if
+           p.requires_grad)
     parameter_groups = model.parameter_groups(cfg.lr)
     print(f'Total number of trainable parameters: {total_parameters}')
     optimizer = torch.optim.Adam(model.parameter_groups(cfg.lr), lr=cfg.lr)
@@ -126,11 +140,13 @@ def main(cfg):
             grad = torch.nan_to_num(grad)
             grad *= loss_weights[int(t)]
             target = (model_latents - grad).detach()
-            sds_loss = 0.5 * F.mse_loss(model_latents, target, reduction="mean")
+            sds_loss = 0.5 * F.mse_loss(model_latents, target,
+                    reduction="mean")
             loss = loss + cfg.loss.sds*sds_loss
         if cfg.loss.BGTplus:
             target_latents = scheduler.step(noise_pred, t,
-                    noisy_model_latents).pred_original_sample.clone().detach().to(vae.dtype)
+                    noisy_model_latents).pred_original_sample\
+                            .clone().detach().to(vae.dtype)
             target_rgb = vae.decode(target_latents / vae.config.scaling_factor
                     ).sample.clone().detach()
             BGTplus_loss = F.mse_loss(model_latents, target_latents,
@@ -143,20 +159,22 @@ def main(cfg):
         torch.cuda.empty_cache()
 
         train_loss_values.append(loss.item())
-        pbar.set_description(f'Loss: {loss.item():.6f}, sampled t : {t.item()}')
+        pbar.set_description(
+                f'Loss: {loss.item():.6f}, sampled t : {t.item()}')
         optimizer.zero_grad()
 
         ######## Evaluation and log metric #########
         if cfg.log_steps and (step % cfg.log_steps == 0 or
                 step == (cfg.num_steps-1)):
             target_latents = scheduler.step(noise_pred, t,
-                    noisy_model_latents).pred_original_sample.to(dtype).clone().detach()
+                    noisy_model_latents).pred_original_sample\
+                            .to(dtype).clone().detach()
             noise_pred = noise_pred.clone().detach()
             with torch.no_grad():
                 if cfg.half_inference:
                     target_latents = target_latents.half()
-                target_rgb = vae.decode(target_latents / vae.config.scaling_factor
-                        ).sample.to(torch.float32)
+                target_rgb = vae.decode(target_latents /
+                    vae.config.scaling_factor).sample.to(torch.float32)
                 log_img = torch.cat((model_rgb,target_rgb), dim=2)
             image_progress.append((log_img/2+0.5).clamp(0, 1))
             log_img_filename = f'{show_step(step, cfg.num_steps)}.png'
@@ -171,6 +189,5 @@ def main(cfg):
         writer.append_data(img)
     writer.close()
 
-#########################################################################################
 if __name__ == "__main__":
     main()

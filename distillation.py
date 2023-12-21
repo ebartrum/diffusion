@@ -27,6 +27,7 @@ import hydra
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from utils import SLURM_OUTPUT_DIR, seed_all
+import visualisation as vis
 
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
@@ -81,6 +82,8 @@ def main(cfg):
     vae.requires_grad_(False)
     text_encoder.requires_grad_(False)
     unet.requires_grad_(False)
+
+    vis_loggers = [vis.DistilTargetLogger(output_dir=output_dir, total_steps=cfg.num_steps)]
 
     scheduler.betas = scheduler.betas.to(device)
     scheduler.alphas = scheduler.alphas.to(device)
@@ -161,6 +164,10 @@ def main(cfg):
         optimizer.zero_grad()
 
         ######## Logging #########
+        for vis_logger in vis_loggers:
+            if vis_logger.is_log_step(step):
+                vis_logger.log_img(step)
+
         if cfg.log_steps and (step % cfg.log_steps == 0 or
                 step == (cfg.num_steps-1)):
             target_latents = scheduler.step(noise_pred, t,

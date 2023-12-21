@@ -16,7 +16,7 @@ class VisualisationLogger():
 
     def log_img(self, step):
         log_img = self.generate_vis_img(step)
-        log_img_filename = f"{self.name}_step.png"
+        log_img_filename = f"{self.name}_{step}.png"
         save_image((log_img/2+0.5).clamp(0, 1),
                 os.path.join(self.output_dir, log_img_filename))
 

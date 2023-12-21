@@ -177,13 +177,15 @@ def main(cfg):
                     vae.config.scaling_factor).sample.to(torch.float32)
                 log_img = torch.cat((model_rgb,target_rgb), dim=2)
             image_progress.append((log_img/2+0.5).clamp(0, 1))
-            log_img_filename = f'{show_step(step, cfg.num_steps)}.png'
+            log_img_filename =\
+                    f'distil_target_{show_step(step, cfg.num_steps)}.png'
             save_image((log_img/2+0.5).clamp(0, 1),
                     os.path.join(output_dir, log_img_filename))
 
     images = sorted(Path(output_dir).glob(f"step*.png"))
     images = [imageio.imread(image) for image in images]
-    writer = imageio.get_writer(os.path.join(output_dir, "progress.mp4"),
+    writer = imageio.get_writer(os.path.join(output_dir,
+            "distil_target_progress.mp4"),
             fps=10, codec='mpeg4')
     for img in images:
         writer.append_data(img)

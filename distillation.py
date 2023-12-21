@@ -163,7 +163,7 @@ def main(cfg):
                 f'Loss: {loss.item():.6f}, sampled t : {t.item()}')
         optimizer.zero_grad()
 
-        ######## Evaluation and log metric #########
+        ######## Logging #########
         if cfg.log_steps and (step % cfg.log_steps == 0 or
                 step == (cfg.num_steps-1)):
             target_latents = scheduler.step(noise_pred, t,

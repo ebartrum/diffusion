@@ -48,7 +48,7 @@ def main(cfg):
     logger.info(f'Using device: {device}; version: {str(torch.version.cuda)}')
     if device.type == 'cuda':
         logger.info(torch.cuda.get_device_name(0))
-    ### load LDM
+
     vae = AutoencoderKL.from_pretrained(cfg.model_id, subfolder="vae",
             cache_dir=cfg.model_dir,
             torch_dtype=dtype,
@@ -117,8 +117,6 @@ def main(cfg):
     train_loss_values = []
     ave_train_loss_values = []
     image_progress = []
-    first_iteration = True
-    logger.info("################# Metrics: ####################")
     chosen_ts = get_t_schedule(num_train_timesteps, cfg, loss_weights)
     pbar = tqdm(chosen_ts)
 

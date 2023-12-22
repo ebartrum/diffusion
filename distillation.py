@@ -167,20 +167,41 @@ def main(cfg):
         optimizer.zero_grad()
 
         ######## Logging #########
-        model.eval()
+        if cfg.log_steps and (step % cfg.log_steps == 0 or
+                step == (cfg.num_steps-1)):
+            target_latents = scheduler.step(noise_pred, t,
+                    noisy_model_latents).pred_original_sample\
+                            .to(dtype).clone().detach()
+            noise_pred = noise_pred.clone().detach()
+            with torch.no_grad():
+                if cfg.half_inference:
+                    target_latents = target_latents.half()
+                target_rgb = vae.decode(target_latents /
+                    vae.config.scaling_factor).sample.to(torch.float32)
+                log_img = torch.cat((model_rgb,target_rgb), dim=2)
+            image_progress.append((log_img/2+0.5).clamp(0, 1))
+            log_img_filename =\
+                    f'training_logs_{show_step(step, cfg.num_steps)}.png'
+            save_image((log_img/2+0.5).clamp(0, 1),
+                    os.path.join(output_dir, log_img_filename))
+            torch.save(model.state_dict(),
+                       os.path.join(output_dir, "model.pth"))
+
         for vis_logger in vis_loggers:
             if vis_logger.is_log_step(step):
+                model.eval()
                 vis_logger.log_img(step, t)
-        model.train()
+                model.train()
 
-    images = sorted(Path(output_dir).glob(f"*.png"))
-    images = [imageio.imread(image) for image in images]
-    writer = imageio.get_writer(os.path.join(output_dir,
-            "distil_target_progress.mp4"),
-            fps=10, codec='mpeg4')
-    for img in images:
-        writer.append_data(img)
-    writer.close()
+    if False:
+        images = sorted(Path(output_dir).glob(f"*.png"))
+        images = [imageio.imread(image) for image in images]
+        writer = imageio.get_writer(os.path.join(output_dir,
+                "distil_target_progress.mp4"),
+                fps=10, codec='mpeg4')
+        for img in images:
+            writer.append_data(img)
+        writer.close()
 
 if __name__ == "__main__":
     main()

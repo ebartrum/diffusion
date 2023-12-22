@@ -28,6 +28,7 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from utils import SLURM_OUTPUT_DIR, seed_all
 import visualisation as vis
+import subprocess
 
 @hydra.main(config_path="conf/distillation",
             config_name="config", version_base=None)
@@ -45,10 +46,12 @@ def main(cfg):
     dtype = torch.float32
 
     logger = setup_logger(output_dir)
-    logger.info(f'[INFO] Cmdline: '+' '.join(sys.argv))
-    logger.info(f'Using device: {device}; version: {str(torch.version.cuda)}')
+    logger.info('git commit: ' + subprocess.check_output(
+        ['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip())
+    logger.info('python: '+' '.join(sys.argv))
+
     if device.type == 'cuda':
-        logger.info(torch.cuda.get_device_name(0))
+        logger.info('GPU: ' + torch.cuda.get_device_name(0))
 
     vae = AutoencoderKL.from_pretrained(cfg.model_id, subfolder="vae",
             cache_dir=cfg.model_dir,

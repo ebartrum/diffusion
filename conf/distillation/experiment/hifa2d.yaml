@@ -1,7 +1,6 @@
 # @package _global_
 defaults:
   - override /model: ingp
-
 multisteps: 4
 guidance_scale: 35
 lr: 1e-3

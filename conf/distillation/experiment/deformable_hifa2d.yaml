@@ -1,7 +1,8 @@
 # @package _global_
 defaults:
   - override /model: deformable_ingp
-
+prompt1: a smiling man
+prompt2: a frowning man
 multisteps: 4
 guidance_scale: 35
 lr: 1e-3

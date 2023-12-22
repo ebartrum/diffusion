@@ -1,5 +1,5 @@
-prompt1: a smiling man
-prompt2: a frowning man
+prompt1: a photograph of an astronaut riding a horse
+prompt2: ${prompt1}
 seed: 1024
 log_steps: 50
 log_progress: True

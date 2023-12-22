@@ -173,7 +173,7 @@ def main(cfg):
                 vis_logger.log_img(step, t)
         model.train()
 
-    images = sorted(Path(output_dir).glob(f"step*.png"))
+    images = sorted(Path(output_dir).glob(f"*.png"))
     images = [imageio.imread(image) for image in images]
     writer = imageio.get_writer(os.path.join(output_dir,
             "distil_target_progress.mp4"),

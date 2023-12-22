@@ -128,10 +128,10 @@ def main(cfg):
     pbar = tqdm(t_schedule)
 
     for step, t in enumerate(pbar):
-        current_text_embeddings = text_embeddings1 if step % 2 ==0 else text_embeddings2
-        current_deformation_embedding = current_text_embeddings[0,deformation_embedding_index]
-
-        current_prompt_index = 0 if step % 2 == 0 else 1
+        current_text_embeddings =\
+                text_embeddings1 if step % 2 == 0 else text_embeddings2
+        current_deformation_embedding =\
+            current_text_embeddings[0,deformation_embedding_index]
         model_rgb, model_latents = get_outputs(model, vae,
                deformation_code=current_deformation_embedding, step=step)
         noise = torch.randn_like(model_latents)
@@ -149,11 +149,13 @@ def main(cfg):
             grad = torch.nan_to_num(grad)
             grad *= loss_weights[int(t)]
             target = (model_latents - grad).detach()
-            sds_loss = 0.5 * F.mse_loss(model_latents, target, reduction="mean")
+            sds_loss = 0.5 * F.mse_loss(model_latents,
+                target, reduction="mean")
             loss = loss + cfg.loss.sds*sds_loss
         if cfg.loss.BGTplus:
             target_latents = scheduler.step(noise_pred, t,
-                    noisy_model_latents).pred_original_sample.clone().detach().to(vae.dtype)
+                    noisy_model_latents).pred_original_sample.\
+                            clone().detach().to(vae.dtype)
             target_rgb = vae.decode(target_latents / vae.config.scaling_factor
                     ).sample.clone().detach()
             BGTplus_loss = F.mse_loss(model_latents, target_latents,
@@ -166,7 +168,8 @@ def main(cfg):
         torch.cuda.empty_cache()
 
         train_loss_values.append(loss.item())
-        pbar.set_description(f'Loss: {loss.item():.6f}, sampled t : {t.item()}')
+        pbar.set_description(
+                f'Loss: {loss.item():.6f}, sampled t : {t.item()}')
         optimizer.zero_grad()
 
         ######## Evaluation and log metric #########

@@ -32,7 +32,7 @@ def setup_logger(output_dir):
 def show_step(step, total_steps):
     return f'step{str(step).zfill(len(str(total_steps)))}'
 
-def get_t_schedule(num_train_timesteps, args, loss_weight=None):
+def get_t_schedule(num_train_timesteps, args, loss_weight=None, device="cpu"):
     ts = list(range(num_train_timesteps))
     assert (args.t_start >= 20) and (args.t_end <= 980)
     ts = ts[args.t_start:args.t_end]
@@ -47,7 +47,7 @@ def get_t_schedule(num_train_timesteps, args, loss_weight=None):
         chosen_ts = chosen_ts.astype(int).tolist()
     else:
         raise ValueError(f"Unknown scheduling strategy: {args.t_schedule}")
-    return chosen_ts
+    return torch.tensor(chosen_ts).unsqueeze(1).to(device)
 
 def get_loss_weights(betas, args):
     num_train_timesteps = len(betas)

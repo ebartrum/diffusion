@@ -81,18 +81,22 @@ def main(cfg):
     text_input2 = tokenizer([cfg.prompt2], padding="max_length",
            max_length=tokenizer.model_max_length, truncation=True,
            return_tensors="pt")
+
     with torch.no_grad():
         text_embeddings1 = text_encoder(text_input1.input_ids.to(device))[0]
         text_embeddings2 = text_encoder(text_input2.input_ids.to(device))[0]
 
-    for i in range(77):
-        if not torch.allclose(text_embeddings1[:,i,:], text_embeddings2[:,i,:]):
-            deformation_embedding_index = i
-            print(f"deformation embedding index: {i}")
-            break
-        else:
-            deformation_embedding_index = -1
-            print("warning: deformations are the same")
+    if cfg.prompt1 == cfg.prompt2:
+        deformation_embedding_index = -1
+    else:
+        deformation_index_found = False
+        for i in range(77):
+            if not torch.allclose(text_embeddings1[:,i,:], text_embeddings2[:,i,:]):
+                deformation_embedding_index = i
+                print(f"deformation embedding index: {i}")
+                deformation_index_found = True
+                break
+        assert deformation_index_found
 
     max_length = text_input1.input_ids.shape[-1]
     uncond_input = tokenizer([""], padding="max_length",
@@ -120,16 +124,14 @@ def main(cfg):
     train_loss_values = []
     ave_train_loss_values = []
     image_progress = []
-    first_iteration = True
-    chosen_ts = get_t_schedule(num_train_timesteps, cfg, loss_weights)
-    pbar = tqdm(chosen_ts)
+    t_schedule = get_t_schedule(num_train_timesteps, cfg, loss_weights, device)
+    pbar = tqdm(t_schedule)
 
-    for step, chosen_t in enumerate(pbar):
+    for step, t in enumerate(pbar):
         current_text_embeddings = text_embeddings1 if step % 2 ==0 else text_embeddings2
         current_deformation_embedding = current_text_embeddings[0,deformation_embedding_index]
 
         current_prompt_index = 0 if step % 2 == 0 else 1
-        t = torch.tensor([chosen_t]).to(device)
         model_rgb, model_latents = get_outputs(model, vae,
                deformation_code=current_deformation_embedding, step=step)
         noise = torch.randn_like(model_latents)

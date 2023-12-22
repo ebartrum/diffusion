@@ -121,7 +121,6 @@ def main(cfg):
     ave_train_loss_values = []
     image_progress = []
     first_iteration = True
-    logger.info("################# Metrics: ####################")
     chosen_ts = get_t_schedule(num_train_timesteps, cfg, loss_weights)
     pbar = tqdm(chosen_ts)
 

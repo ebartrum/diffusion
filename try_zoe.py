@@ -23,7 +23,8 @@ depth = zoe.infer_pil(image)
 
 # Save raw
 fpath = "out/zoe_output.png"
-save_raw_16bit(depth, fpath)
+grey_depth = colorize(depth, cmap="gray_r")
+Image.fromarray(grey_depth).save(fpath)
 
 colored = colorize(depth, cmap="magma_r")
 fpath_colored = "out/zoe_output_colored.png"

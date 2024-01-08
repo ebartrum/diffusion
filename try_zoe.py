@@ -11,7 +11,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 zoe = model_zoe_n.to(DEVICE)
 
 # Local file
-image = Image.open("misc/rocket.png").convert("RGB")  # load
+image = Image.open("misc/corgi.png").convert("RGB")  # load
 depth_numpy = zoe.infer_pil(image)  # as numpy
 depth_pil = zoe.infer_pil(image, output_type="pil")  # as 16-bit PIL Image
 depth_tensor = zoe.infer_pil(image, output_type="tensor")  # as torch tensor

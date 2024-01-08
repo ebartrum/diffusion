@@ -1,0 +1,3 @@
+[submodule "submodules/zoedepth"]
+	path = submodules/zoedepth
+	url = git@github.com:isl-org/ZoeDepth.git

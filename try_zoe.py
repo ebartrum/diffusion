@@ -1,7 +1,7 @@
 import torch
 from PIL import Image
 from submodules.zoedepth.zoedepth.utils.misc import (colorize,
-    pil_to_batched_tensor, save_raw_16bit)
+    pil_to_batched_tensor, save_raw_16bit, get_image_from_url)
 
 # Zoe_N
 model_zoe_n = torch.hub.load(".", "ZoeD_N", source="local", pretrained=True)
@@ -25,6 +25,6 @@ depth = zoe.infer_pil(image)
 fpath = "out/zoe_output.png"
 save_raw_16bit(depth, fpath)
 
-colored = colorize(depth)
+colored = colorize(depth, cmap="magma_r")
 fpath_colored = "out/zoe_output_colored.png"
 Image.fromarray(colored).save(fpath_colored)

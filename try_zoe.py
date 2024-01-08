@@ -2,9 +2,11 @@ import torch
 from PIL import Image
 from submodules.zoedepth.zoedepth.utils.misc import (colorize,
     pil_to_batched_tensor, save_raw_16bit, get_image_from_url)
+from submodules.zoedepth.zoedepth.utils.config import get_config
+from submodules.zoedepth.zoedepth.models.builder import build_model
 
-# Zoe_N
-model_zoe_n = torch.hub.load(".", "ZoeD_N", source="local", pretrained=True)
+conf = get_config("zoedepth", "infer")
+model_zoe_n = build_model(conf)
 
 ##### sample prediction
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

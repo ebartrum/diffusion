@@ -54,14 +54,27 @@ def main(cfg):
         logger.info('GPU: ' + torch.cuda.get_device_name(0))
 
     vae = AutoencoderKL.from_pretrained(cfg.model_id, subfolder="vae",
-            cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
-    tokenizer = CLIPTokenizer.from_pretrained(cfg.model_id, subfolder="tokenizer",
-            cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
-    text_encoder = CLIPTextModel.from_pretrained(cfg.model_id, subfolder="text_encoder", cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
-    unet = UNet2DConditionModel.from_pretrained(cfg.model_id, subfolder="unet", cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
+            cache_dir=cfg.model_dir,
+            torch_dtype=dtype,
+            local_files_only=cfg.local_files_only)
+    tokenizer = CLIPTokenizer.from_pretrained(cfg.model_id,
+              subfolder="tokenizer",
+              cache_dir=cfg.model_dir,
+              torch_dtype=dtype,
+              local_files_only=cfg.local_files_only)
+    text_encoder = CLIPTextModel.from_pretrained(cfg.model_id,
+             subfolder="text_encoder",
+             cache_dir=cfg.model_dir,
+             torch_dtype=dtype,
+             local_files_only=cfg.local_files_only)
+    unet = UNet2DConditionModel.from_pretrained(cfg.model_id, subfolder="unet",
+                cache_dir=cfg.model_dir,
+                torch_dtype=dtype,
+                local_files_only=cfg.local_files_only)
     scheduler = DDIMScheduler.from_pretrained(
            cfg.model_id, subfolder="scheduler",
-           cache_dir=cfg.model_dir, torch_dtype=dtype, local_files_only=cfg.local_files_only)
+           cache_dir=cfg.model_dir, torch_dtype=dtype,
+           local_files_only=cfg.local_files_only)
     if cfg.half_inference:
         unet = unet.half()
         vae = vae.half()
@@ -199,6 +212,5 @@ def main(cfg):
         writer.append_data(img)
     writer.close()
 
-#########################################################################################
 if __name__ == "__main__":
     main()

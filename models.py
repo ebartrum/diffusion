@@ -78,8 +78,13 @@ class DeformableInstantNGP(InstantNGP):
                 torch.cat([self.xy, 1-self.xy], 1).min(1).values,
                 requires_grad=False)
         deformation_encoding_cfg = {
-            "otype": "TriangleWave",
-            "n_frequencies": 12}
+            "otype": "HashGrid",
+            "n_levels": 16,
+            "n_features_per_level": 2,
+            "log2_hashmap_size": 15,
+            "base_resolution": 16,
+            "per_level_scale": 1.5
+            }
         deformation_network_cfg = {
            "otype": "FullyFusedMLP",
            "activation": "Sine",

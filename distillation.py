@@ -47,7 +47,9 @@ def main(cfg):
     logger = setup_logger(output_dir)
     logger.info('git commit: ' + subprocess.check_output(
         ['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip())
-    logger.info('python: '+' '.join(sys.argv))
+    logger.info('git branch: ' + subprocess.check_output(
+        ['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode('ascii').strip())
+    logger.info('command: python '+' '.join(sys.argv))
     if device.type == 'cuda':
         logger.info('GPU: ' + torch.cuda.get_device_name(0))
 

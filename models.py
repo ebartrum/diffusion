@@ -74,9 +74,6 @@ class InstantNGP(nn.Module):
 class DeformableInstantNGP(InstantNGP):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.max_deformations = torch.nn.parameter.Parameter(
-                torch.cat([self.xy, 1-self.xy], 1).min(1).values,
-                requires_grad=False)
         deformation_encoding_cfg = {
             "otype": "TriangleWave",
             "n_frequencies": 12}
@@ -104,10 +101,8 @@ class DeformableInstantNGP(InstantNGP):
 
     def deformed_xy(self, deformation_code=None, step=None):
         deformation_linear = self.deformation_net(self.xy)
-        max_amplitude = self.max_deformations
-        if step is not None:
-            max_amplitude = max_amplitude * (torch.tensor(step)/200).clip(0,1)
-        deformation_offset = torch.tanh(deformation_linear) * max_amplitude.unsqueeze(1)
+        max_deformation = 0.1
+        deformation_offset = torch.tanh(deformation_linear) * max_deformation
         return self.xy + deformation_offset
 
     def generate(self, deformation_code=None, step=None):

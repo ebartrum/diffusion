@@ -97,7 +97,7 @@ class DeformableInstantNGP(InstantNGP):
 
     def parameter_groups(self, lr):
         return [{'params': self.encoding.parameters(), 'lr': 10*lr},
-                {'params': self.deformation_encoding.parameters(), 'lr': 10*lr},
+                {'params': self.deformation_encoding.parameters(), 'lr': lr},
                 {'params': self.network.parameters(), 'lr': lr},
                 {'params': self.deformation_network.parameters(), 'lr': lr},
                 ]

@@ -1,6 +1,7 @@
 # @package _global_
 defaults:
   - override /model: ingp
+prompt1: a smiling man
 multisteps: 4
 guidance_scale: 35
 lr: 1e-3

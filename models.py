@@ -86,11 +86,11 @@ class DeformableInstantNGP(InstantNGP):
             "per_level_scale": 1.5
             }
         deformation_network_cfg = {
-           "otype": "FullyFusedMLP",
-           "activation": "Sine",
-           "output_activation": "None",
-           "n_neurons": 32,
-           "n_hidden_layers": 1}
+            "otype": "FullyFusedMLP",
+            "activation": "ReLU",
+            "output_activation": "None",
+            "n_neurons": 32,
+            "n_hidden_layers": 2}
         self.deformation_encoding = tcnn.Encoding(
             n_input_dims=2, encoding_config=deformation_encoding_cfg)
         self.deformation_network = tcnn.Network(

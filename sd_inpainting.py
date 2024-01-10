@@ -8,6 +8,6 @@ pipe = StableDiffusionInpaintPipeline.from_pretrained(
     "runwayml/stable-diffusion-inpainting",
     torch_dtype=torch.float32,
 )
-prompt = "A yellow cat, high resolution"
+prompt = "empty plinth"
 image = pipe(prompt=prompt, image=image, mask_image=mask_image).images[0]
 image.save("out/inpainted.png")

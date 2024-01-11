@@ -1,0 +1,11 @@
+image: misc/rednet_img.png
+mask: misc/rednet_mask.png
+model_dir: ./pretrained/hf-models
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+defaults:
+  - _self_
+  - model: sd_xl
+  - override hydra/job_logging: disabled

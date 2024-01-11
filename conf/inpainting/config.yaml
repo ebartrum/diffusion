@@ -1,6 +1,6 @@
-image: misc/rednet_img.png
-mask: misc/rednet_mask.png
 model_dir: ./pretrained/hf-models
+prompt: ''
+guidance_scale: 7.5
 hydra:
   output_subdir: null
   run:
@@ -8,4 +8,5 @@ hydra:
 defaults:
   - _self_
   - model: sd_xl
+  - data: rednet
   - override hydra/job_logging: disabled

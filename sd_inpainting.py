@@ -6,8 +6,8 @@ import hydra
 @hydra.main(config_path="conf/inpainting",
             config_name="config", version_base=None)
 def main(cfg):
-    image = Image.open("misc/rednet_img.png").convert("RGB")
-    mask_image = Image.open("misc/rednet_mask.png").convert("RGB")
+    image = Image.open(cfg.data.img).convert("RGB")
+    mask_image = Image.open(cfg.data.mask).convert("RGB")
 
     # pipe = StableDiffusionInpaintPipeline.from_pretrained(
     #     # "runwayml/stable-diffusion-inpainting",
@@ -19,10 +19,8 @@ def main(cfg):
           torch_dtype=torch.float16,
           variant="fp16").to("cuda")
 
-    # prompt = "empty plinth"
-    prompt = ""
-    image = pipe(prompt=prompt, image=image, mask_image=mask_image,
-                 guidance_scale=7.5).images[0]
+    image = pipe(prompt=cfg.prompt, image=image, mask_image=mask_image,
+                 guidance_scale=cfg.guidance_scale).images[0]
     image.save("out/inpainted.png")
 
 if __name__ == "__main__":

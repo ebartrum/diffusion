@@ -25,7 +25,7 @@ def main(cfg):
     pipe = StableDiffusionPipeline.from_pretrained(cfg.model_id,schedule=ddim,
            cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only).to(device)
 
-    generator = torch.Generator(device=device).manual_seed(42)
+    generator = torch.Generator(device=device).manual_seed(cfg.seed)
     pipe_output = pipe(
         prompt=cfg.prompt,
         negative_prompt=cfg.negative_prompt,

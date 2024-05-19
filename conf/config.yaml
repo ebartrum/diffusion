@@ -5,6 +5,7 @@ negative_prompt: Oversaturated, blurry, low quality
 img_resolution: 512
 num_inference_steps: 35
 guidance_scale: 8
+seed: 42
 local_files_only: True
 hydra:
   output_subdir: null

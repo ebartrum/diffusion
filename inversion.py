@@ -98,7 +98,7 @@ inverted_latents = invert(l, input_image_prompt, num_inference_steps=50,
 final_inverted_latent = inverted_latents[-1].unsqueeze(0)
 
 reconstruction = pipe(input_image_prompt, latents=final_inverted_latent,
-      num_inference_steps=50, guidance_scale=cfg,
+      num_inference_steps=50, guidance_scale=cfg, eta=0,
       output_type="pt").images[0]
 
 combined_output = torch.cat((img,reconstruction),2)

@@ -91,14 +91,16 @@ with torch.no_grad():
 l = 0.18215 * latent.latent_dist.sample()
 
 cfg = 1
-inverted_latents = invert(l, input_image_prompt, num_inference_steps=50,
+num_steps = 999
+
+inverted_latents = invert(l, input_image_prompt, num_inference_steps=num_steps,
       guidance_scale=cfg,
       device=device)
 
 final_inverted_latent = inverted_latents[-1].unsqueeze(0)
 
 reconstruction = pipe(input_image_prompt, latents=final_inverted_latent,
-      num_inference_steps=50, guidance_scale=cfg, eta=0,
+      num_inference_steps=num_steps, guidance_scale=cfg, eta=0,
       output_type="pt").images[0]
 
 combined_output = torch.cat((img,reconstruction),2)

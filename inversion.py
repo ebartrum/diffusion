@@ -100,5 +100,6 @@ reconstruction = pipe(input_image_prompt, latents=final_inverted_latent,
       output_type="pt").images[0]
 
 combined_output = torch.cat((img,reconstruction),2)
+torchvision.utils.save_image(combined_output,"out/inversion.png")
 plt.imshow(combined_output.cpu().permute(1,2,0))
 plt.show()

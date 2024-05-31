@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 from torchvision.transforms.functional import to_tensor
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 
+@torch.no_grad()
 def invert(
     start_latents,
     prompt,
@@ -17,7 +18,7 @@ def invert(
     num_images_per_prompt=1,
     do_classifier_free_guidance=True,
     negative_prompt="",
-    device=device,
+    device="cpu",
 ):
 
     # Encode prompt
@@ -77,13 +78,24 @@ pipe = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
 pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
 
 img = Image.open("./data/beagle.jpeg").convert("RGB").resize((512,512))
+img = to_tensor(img).to(device)
 input_image_prompt = "Photograph of a puppy on the grass"
 
 # Encode with VAE
 with torch.no_grad():
-    latent = pipe.vae.encode(to_tensor(img).unsqueeze(0).to(device) * 2 - 1)
+    latent = pipe.vae.encode(img.unsqueeze(0)*2 - 1)
 
 l = 0.18215 * latent.latent_dist.sample()
 
-import ipdb;ipdb.set_trace()
+inverted_latents = invert(l, input_image_prompt, num_inference_steps=50,
+      device=device)
 
+final_inverted_latent = inverted_latents[-1].unsqueeze(0)
+
+reconstruction = pipe(input_image_prompt, latents=final_inverted_latent,
+      num_inference_steps=50, guidance_scale=3.5,
+      output_type="pt").images[0]
+
+combined_output = torch.cat((img,reconstruction),2)
+plt.imshow(combined_output.cpu().permute(1,2,0))
+plt.show()

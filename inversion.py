@@ -1,12 +1,13 @@
 import torch
-import requests
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision
+from torchvision.transforms.functional import to_tensor, center_crop
+import requests
 from PIL import Image
 from io import BytesIO
 from tqdm.auto import tqdm
 from matplotlib import pyplot as plt
-from torchvision.transforms.functional import to_tensor, center_crop
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 
 @torch.no_grad()
@@ -89,14 +90,15 @@ with torch.no_grad():
 
 l = 0.18215 * latent.latent_dist.sample()
 
+cfg = 1
 inverted_latents = invert(l, input_image_prompt, num_inference_steps=50,
-      do_classifier_free_guidance=True,
+      guidance_scale=cfg,
       device=device)
 
 final_inverted_latent = inverted_latents[-1].unsqueeze(0)
 
 reconstruction = pipe(input_image_prompt, latents=final_inverted_latent,
-      num_inference_steps=50, guidance_scale=3.5,
+      num_inference_steps=50, guidance_scale=cfg,
       output_type="pt").images[0]
 
 combined_output = torch.cat((img,reconstruction),2)

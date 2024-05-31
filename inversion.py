@@ -6,7 +6,7 @@ from PIL import Image
 from io import BytesIO
 from tqdm.auto import tqdm
 from matplotlib import pyplot as plt
-from torchvision.transforms.functional import to_tensor
+from torchvision.transforms.functional import to_tensor, center_crop
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 
 @torch.no_grad()
@@ -77,9 +77,11 @@ device = torch.device("cuda:0")
 pipe = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5").to(device)
 pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
 
-img = Image.open("./data/beagle.jpeg").convert("RGB").resize((512,512))
+img = Image.open("./data/frontal_face.jpg").convert("RGB")
 img = to_tensor(img).to(device)
-input_image_prompt = "Photograph of a puppy on the grass"
+img = center_crop(img,min(img.shape[1],img.shape[2]))
+img = F.interpolate(img.unsqueeze(0),512).squeeze(0)
+input_image_prompt = "A man"
 
 # Encode with VAE
 with torch.no_grad():
@@ -88,6 +90,7 @@ with torch.no_grad():
 l = 0.18215 * latent.latent_dist.sample()
 
 inverted_latents = invert(l, input_image_prompt, num_inference_steps=50,
+      do_classifier_free_guidance=True,
       device=device)
 
 final_inverted_latent = inverted_latents[-1].unsqueeze(0)

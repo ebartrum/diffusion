@@ -35,7 +35,7 @@ def main(cfg):
            cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only)
     pipe = StableDiffusionPipeline.from_pretrained(cfg.model_id,schedule=ddim,
            cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only).to(device)
-    #del pipe.scheduler
+    del pipe.scheduler
 
     generator = torch.Generator(device=device).manual_seed(cfg.seed)
     pipe_output = call_pipeline(
@@ -174,12 +174,10 @@ def call_pipeline(
     )
 
     # 5. Prepare latent variables
-#    latents = torch.randn([1, 4, 64, 64]).to(device)
     latents = randn_tensor([1,4,64,64], generator=generator, device=device, dtype=prompt_embeds.dtype)
     latents = latents * scheduler.init_noise_sigma
 
     # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
-    #extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, eta)
     extra_step_kwargs = {}
 
     # 6.1 Add image embeds for IP-Adapter

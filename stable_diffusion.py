@@ -34,6 +34,7 @@ def main(cfg):
            cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only)
     pipe = StableDiffusionPipeline.from_pretrained(cfg.model_id,schedule=ddim,
            cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only).to(device)
+    pipe.scheduler = ddim
 
     generator = torch.Generator(device=device).manual_seed(cfg.seed)
     pipe_output = call_pipeline(

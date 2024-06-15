@@ -16,6 +16,7 @@ from diffusers.models import AutoencoderKL, ImageProjection, UNet2DConditionMode
 from diffusers.models.lora import adjust_lora_scale_text_encoder
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import retrieve_timesteps
 from diffusers.pipelines.stable_diffusion.pipeline_output import StableDiffusionPipelineOutput
+from diffusers.utils.torch_utils import randn_tensor
 
 @hydra.main(config_path="conf",
             config_name="config", version_base=None)
@@ -34,11 +35,12 @@ def main(cfg):
            cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only)
     pipe = StableDiffusionPipeline.from_pretrained(cfg.model_id,schedule=ddim,
            cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only).to(device)
-    pipe.scheduler = ddim
+    #del pipe.scheduler
 
     generator = torch.Generator(device=device).manual_seed(cfg.seed)
     pipe_output = call_pipeline(
         pipe,
+        scheduler=ddim,
         prompt=cfg.prompt,
         negative_prompt=cfg.negative_prompt,
         height=cfg.img_resolution, width=cfg.img_resolution,
@@ -52,6 +54,7 @@ def main(cfg):
 @torch.no_grad()
 def call_pipeline(
     pipeline,
+    scheduler,
     prompt: Union[str, List[str]] = None,
     height: Optional[int] = None,
     width: Optional[int] = None,
@@ -167,24 +170,17 @@ def call_pipeline(
 
     # 4. Prepare timesteps
     timesteps, num_inference_steps = retrieve_timesteps(
-        pipeline.scheduler, num_inference_steps, device, timesteps, sigmas
+        scheduler, num_inference_steps, device, timesteps, sigmas
     )
 
     # 5. Prepare latent variables
-    num_channels_latents = pipeline.unet.config.in_channels
-    latents = pipeline.prepare_latents(
-        batch_size * num_images_per_prompt,
-        num_channels_latents,
-        height,
-        width,
-        prompt_embeds.dtype,
-        device,
-        generator,
-        latents,
-    )
+#    latents = torch.randn([1, 4, 64, 64]).to(device)
+    latents = randn_tensor([1,4,64,64], generator=generator, device=device, dtype=prompt_embeds.dtype)
+    latents = latents * scheduler.init_noise_sigma
 
     # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
-    extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, eta)
+    #extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, eta)
+    extra_step_kwargs = {}
 
     # 6.1 Add image embeds for IP-Adapter
     added_cond_kwargs = (
@@ -202,7 +198,7 @@ def call_pipeline(
         ).to(device=device, dtype=latents.dtype)
 
     # 7. Denoising loop
-    num_warmup_steps = len(timesteps) - num_inference_steps * pipeline.scheduler.order
+    num_warmup_steps = len(timesteps) - num_inference_steps * scheduler.order
     pipeline._num_timesteps = len(timesteps)
     with pipeline.progress_bar(total=num_inference_steps) as progress_bar:
         for i, t in enumerate(timesteps):
@@ -211,7 +207,7 @@ def call_pipeline(
 
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if pipeline.do_classifier_free_guidance else latents
-            latent_model_input = pipeline.scheduler.scale_model_input(latent_model_input, t)
+            latent_model_input = scheduler.scale_model_input(latent_model_input, t)
 
             # predict the noise residual
             noise_pred = pipeline.unet(
@@ -234,7 +230,7 @@ def call_pipeline(
                 noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=pipeline.guidance_rescale)
 
             # compute the previous noisy sample x_t -> x_t-1
-            latents = pipeline.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+            latents = scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
 
             if callback_on_step_end is not None:
                 callback_kwargs = {}
@@ -247,10 +243,10 @@ def call_pipeline(
                 negative_prompt_embeds = callback_outputs.pop("negative_prompt_embeds", negative_prompt_embeds)
 
             # call the callback, if provided
-            if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % pipeline.scheduler.order == 0):
+            if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % scheduler.order == 0):
                 progress_bar.update()
                 if callback is not None and i % callback_steps == 0:
-                    step_idx = i // getattr(pipeline.scheduler, "order", 1)
+                    step_idx = i // getattr(scheduler, "order", 1)
                     callback(step_idx, t, latents)
 
     if not output_type == "latent":

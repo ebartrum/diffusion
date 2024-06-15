@@ -14,6 +14,8 @@ from diffusers.image_processor import PipelineImageInput, VaeImageProcessor
 from diffusers.loaders import FromSingleFileMixin, IPAdapterMixin, LoraLoaderMixin, TextualInversionLoaderMixin
 from diffusers.models import AutoencoderKL, ImageProjection, UNet2DConditionModel
 from diffusers.models.lora import adjust_lora_scale_text_encoder
+from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import retrieve_timesteps
+from diffusers.pipelines.stable_diffusion.pipeline_output import StableDiffusionPipelineOutput
 
 @hydra.main(config_path="conf",
             config_name="config", version_base=None)
@@ -35,7 +37,7 @@ def main(cfg):
 
     generator = torch.Generator(device=device).manual_seed(cfg.seed)
     pipe_output = call_pipeline(
-        pipeline,
+        pipe,
         prompt=cfg.prompt,
         negative_prompt=cfg.negative_prompt,
         height=cfg.img_resolution, width=cfg.img_resolution,

@@ -59,11 +59,9 @@ def call_pipeline(
     guidance_scale: float = 7.5,
     negative_prompt: Optional[Union[str, List[str]]] = None,
     generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+    do_classifier_free_guidance=True,
 ):
-    pipeline._cross_attention_kwargs = None
-
     device = pipeline._execution_device
-
     prompt_embeds, negative_prompt_embeds = pipeline.encode_prompt(
         prompt,
         device,
@@ -72,7 +70,8 @@ def call_pipeline(
         negative_prompt=negative_prompt,
     )
 
-    do_classifier_free_guidance=True
+    latents = randn_tensor([1,4,64,64], generator=generator, device=device, dtype=prompt_embeds.dtype)
+
 
     # Concatenate the unconditional and text embeddings into a single batch
     # to avoid doing two forward passes
@@ -82,8 +81,6 @@ def call_pipeline(
     timesteps, num_inference_steps = retrieve_timesteps(
         scheduler, num_inference_steps, device, timesteps=None, sigmas=None
     )
-
-    latents = randn_tensor([1,4,64,64], generator=generator, device=device, dtype=prompt_embeds.dtype)
 
     # Denoise the latents
     for i, t in tqdm(enumerate(timesteps), total=len(timesteps)):
@@ -95,7 +92,6 @@ def call_pipeline(
             latent_model_input,
             t,
             encoder_hidden_states=prompt_embeds,
-            cross_attention_kwargs=pipeline.cross_attention_kwargs,
             return_dict=False,
         )[0]
 

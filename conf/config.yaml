@@ -4,6 +4,8 @@ prompt: A cute and realistic kitten
 negative_prompt:
 img_resolution: 512
 num_inference_steps: 35
+output_file: out.png
+output_dir: out
 guidance_scale: 8
 seed: 42
 local_files_only: True

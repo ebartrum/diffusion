@@ -22,9 +22,8 @@ from tqdm import tqdm
 @hydra.main(config_path="conf",
             config_name="config", version_base=None)
 def main(cfg):
-    output_dir = "out"
-    os.makedirs(output_dir, exist_ok=True)
-    with open(os.path.join(output_dir,"cfg.yaml"), 'w') as f:
+    os.makedirs(cfg.output_dir, exist_ok=True)
+    with open(os.path.join(cfg.output_dir,"cfg.yaml"), 'w') as f:
         f.write(OmegaConf.to_yaml(cfg))
 
     device = torch.device("cuda:0")
@@ -46,7 +45,7 @@ def main(cfg):
         num_inference_steps=cfg.num_inference_steps,
         generator=generator
     )[0]
-    save_image(image, os.path.join(output_dir,"out.png"))
+    save_image(image, os.path.join(cfg.output_dir,cfg.output_file))
 
 @torch.no_grad()
 def call_pipeline(

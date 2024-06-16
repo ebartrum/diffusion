@@ -5,11 +5,13 @@ import yaml
 import os
 import matplotlib.pyplot as plt
 import torch
+import torch.nn.functional as F
 from torchvision.utils import save_image
 from typing import Any, Callable, Dict, List, Optional, Union
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import retrieve_timesteps
 from diffusers.utils.torch_utils import randn_tensor
 from tqdm import tqdm
+from collections import OrderedDict
 
 @hydra.main(config_path="conf",
             config_name="config", version_base=None)
@@ -30,7 +32,7 @@ def main(cfg):
     noisy_latents = randn_tensor([1,4,64,64], generator=generator, device=device,
            dtype=pipe.dtype)
     
-    clean_latents = denoise_latents(
+    clean_latents, trajectory = denoise_latents(
         noisy_latents,
         pipe,
         device,
@@ -44,6 +46,15 @@ def main(cfg):
 
     image = latents2img(clean_latents, pipe, generator)
     save_image(image, os.path.join(cfg.output_dir,cfg.output_file))
+
+    with torch.no_grad():
+        img_trajectory = [latents2img(l, pipe, generator) for l in trajectory.values()]
+        img_trajectory = [F.interpolate(img, 128) for img in img_trajectory]
+        img_trajectory = torch.cat(img_trajectory, -1)
+
+    img_trajectory_output_file = cfg.output_file.replace('.','_trajectory.')
+    save_image(img_trajectory, os.path.join(cfg.output_dir,
+            img_trajectory_output_file))
 
 def latents2img(latents, pipe, generator):
     image = pipe.vae.decode(latents / pipe.vae.config.scaling_factor,
@@ -65,6 +76,7 @@ def denoise_latents(
     do_classifier_free_guidance=True,
 ):
 
+    trajectory = OrderedDict() 
     prompt_embeds, negative_prompt_embeds = pipeline.encode_prompt(
         prompt,
         device,
@@ -96,15 +108,20 @@ def denoise_latents(
             return_dict=False,
         )[0]
 
+
         # perform guidance
         if do_classifier_free_guidance:
             noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
             noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
+        if i%7 == 0:
+            current_pred_z0 = latents.clone() - noise_pred
+            trajectory[t] = current_pred_z0
+
         # compute the previous noisy sample x_t -> x_t-1
         latents = scheduler.step(noise_pred, t, latents, return_dict=False)[0]
 
-    return latents
+    return latents, trajectory
 
 if __name__ == "__main__":
     main()

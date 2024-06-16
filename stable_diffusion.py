@@ -44,7 +44,6 @@ def main(cfg):
         scheduler=ddim,
         prompt=cfg.prompt,
         negative_prompt=cfg.negative_prompt,
-        # height=cfg.img_resolution, width=cfg.img_resolution,
         guidance_scale=cfg.guidance_scale,
         num_inference_steps=cfg.num_inference_steps,
         generator=generator
@@ -57,7 +56,6 @@ def call_pipeline(
     scheduler,
     prompt: Union[str, List[str]] = None,
     num_inference_steps: int = 50,
-    timesteps: List[int] = None,
     guidance_scale: float = 7.5,
     negative_prompt: Optional[Union[str, List[str]]] = None,
     generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
@@ -83,7 +81,7 @@ def call_pipeline(
 
     # 4. Prepare timesteps
     timesteps, num_inference_steps = retrieve_timesteps(
-        scheduler, num_inference_steps, device, timesteps, sigmas=None
+        scheduler, num_inference_steps, device, timesteps=None, sigmas=None
     )
 
     # 5. Prepare latent variables

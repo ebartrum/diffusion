@@ -122,8 +122,8 @@ def call_pipeline(
     # 7. Denoising loop
     num_warmup_steps = len(timesteps) - num_inference_steps * scheduler.order
     pipeline._num_timesteps = len(timesteps)
-    # with pipeline.progress_bar(total=num_inference_steps) as progress_bar:
-    for i, t in tqdm(enumerate(timesteps)):
+
+    for i, t in tqdm(enumerate(timesteps), total=len(timesteps)):
         # expand the latents if we are doing classifier free guidance
         latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
 

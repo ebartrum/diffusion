@@ -1,6 +1,5 @@
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 from omegaconf import OmegaConf
-from utils import SLURM_OUTPUT_DIR
 import hydra
 import yaml
 import os
@@ -8,14 +7,7 @@ import matplotlib.pyplot as plt
 import torch
 from torchvision.utils import save_image
 from typing import Any, Callable, Dict, List, Optional, Union
-from diffusers.image_processor import PipelineImageInput, VaeImageProcessor
-from diffusers.callbacks import MultiPipelineCallbacks, PipelineCallback
-from diffusers.configuration_utils import FrozenDict
-from diffusers.image_processor import PipelineImageInput, VaeImageProcessor
-from diffusers.loaders import FromSingleFileMixin, IPAdapterMixin, LoraLoaderMixin, TextualInversionLoaderMixin
-from diffusers.models import AutoencoderKL, ImageProjection, UNet2DConditionModel
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import retrieve_timesteps
-from diffusers.pipelines.stable_diffusion.pipeline_output import StableDiffusionPipelineOutput
 from diffusers.utils.torch_utils import randn_tensor
 from tqdm import tqdm
 

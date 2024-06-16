@@ -6,6 +6,7 @@ import yaml
 import os
 import matplotlib.pyplot as plt
 import torch
+from torchvision.utils import save_image
 from typing import Any, Callable, Dict, List, Optional, Union
 from diffusers.image_processor import PipelineImageInput, VaeImageProcessor
 from diffusers.callbacks import MultiPipelineCallbacks, PipelineCallback
@@ -47,7 +48,7 @@ def main(cfg):
         num_inference_steps=cfg.num_inference_steps,
         generator=generator
     )[0]
-    image.save(os.path.join(output_dir,"out.png"))
+    save_image(image, os.path.join(output_dir,"out.png"))
 
 @torch.no_grad()
 def call_pipeline(
@@ -159,8 +160,7 @@ def call_pipeline(
 
     image = pipeline.vae.decode(latents / pipeline.vae.config.scaling_factor,
                                 return_dict=False, generator=generator)[0]
-    do_denormalize = [True]
-    image = pipeline.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
+    image = (image / 2 + 0.5).clamp(0, 1)
     return image
 
 if __name__ == "__main__":

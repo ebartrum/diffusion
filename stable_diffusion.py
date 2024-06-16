@@ -117,12 +117,6 @@ def call_pipeline(
 
     # 5. Prepare latent variables
     latents = randn_tensor([1,4,64,64], generator=generator, device=device, dtype=prompt_embeds.dtype)
-    latents = latents * scheduler.init_noise_sigma
-
-    # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
-    extra_step_kwargs = {}
-    timestep_cond = None
-    added_cond_kwargs = {}
 
     # 7. Denoising loop
     num_warmup_steps = len(timesteps) - num_inference_steps * scheduler.order
@@ -138,9 +132,7 @@ def call_pipeline(
                 latent_model_input,
                 t,
                 encoder_hidden_states=prompt_embeds,
-                timestep_cond=timestep_cond,
                 cross_attention_kwargs=pipeline.cross_attention_kwargs,
-                added_cond_kwargs=added_cond_kwargs,
                 return_dict=False,
             )[0]
 
@@ -151,7 +143,7 @@ def call_pipeline(
 
 
             # compute the previous noisy sample x_t -> x_t-1
-            latents = scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+            latents = scheduler.step(noise_pred, t, latents, return_dict=False)[0]
 
             if callback_on_step_end is not None:
                 callback_kwargs = {}

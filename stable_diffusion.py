@@ -56,31 +56,11 @@ def call_pipeline(
     pipeline,
     scheduler,
     prompt: Union[str, List[str]] = None,
-    # height: Optional[int] = None,
-    # width: Optional[int] = None,
     num_inference_steps: int = 50,
     timesteps: List[int] = None,
-    # sigmas: List[float] = None,
     guidance_scale: float = 7.5,
     negative_prompt: Optional[Union[str, List[str]]] = None,
-    # num_images_per_prompt: Optional[int] = 1,
-    # eta: float = 0.0,
     generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
-    # latents: Optional[torch.Tensor] = None,
-    # prompt_embeds: Optional[torch.Tensor] = None,
-    # negative_prompt_embeds: Optional[torch.Tensor] = None,
-    # ip_adapter_image: Optional[PipelineImageInput] = None,
-    # ip_adapter_image_embeds: Optional[List[torch.Tensor]] = None,
-    # output_type: Optional[str] = "pil",
-    return_dict: bool = True,
-    # cross_attention_kwargs: Optional[Dict[str, Any]] = None,
-    # guidance_rescale: float = 0.0,
-    # clip_skip: Optional[int] = None,
-    # callback_on_step_end: Optional[
-    #     Union[Callable[[int, int, Dict], None], PipelineCallback, MultiPipelineCallbacks]
-    # ] = None,
-    # callback_on_step_end_tensor_inputs: List[str] = ["latents"],
-    # **kwargs,
 ):
     pipeline._cross_attention_kwargs = None
 
@@ -92,8 +72,6 @@ def call_pipeline(
         num_images_per_prompt=1,
         do_classifier_free_guidance=True,
         negative_prompt=negative_prompt,
-        # prompt_embeds=prompt_embeds,
-        # negative_prompt_embeds=negative_prompt_embeds,
     )
 
     do_classifier_free_guidance=True,

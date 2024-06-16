@@ -22,15 +22,12 @@ from tqdm import tqdm
 @hydra.main(config_path="conf",
             config_name="config", version_base=None)
 def main(cfg):
-    if os.getenv("SLURM_JOB_ID"):
-        output_dir = os.path.join("out", SLURM_OUTPUT_DIR)
-    else:
-        output_dir = "out"
+    output_dir = "out"
     os.makedirs(output_dir, exist_ok=True)
     with open(os.path.join(output_dir,"cfg.yaml"), 'w') as f:
         f.write(OmegaConf.to_yaml(cfg))
 
-    device = "cuda"
+    device = torch.device("cuda:0")
     ddim = DDIMScheduler.from_pretrained(
            cfg.model_id, subfolder="scheduler",
            cache_dir=cfg.model_dir, local_files_only=cfg.local_files_only)
@@ -41,6 +38,7 @@ def main(cfg):
     generator = torch.Generator(device=device).manual_seed(cfg.seed)
     image = call_pipeline(
         pipe,
+        device,
         scheduler=ddim,
         prompt=cfg.prompt,
         negative_prompt=cfg.negative_prompt,
@@ -53,6 +51,7 @@ def main(cfg):
 @torch.no_grad()
 def call_pipeline(
     pipeline,
+    device,
     scheduler,
     prompt: Union[str, List[str]] = None,
     num_inference_steps: int = 50,
@@ -61,7 +60,6 @@ def call_pipeline(
     generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
     do_classifier_free_guidance=True,
 ):
-    device = pipeline._execution_device
     prompt_embeds, negative_prompt_embeds = pipeline.encode_prompt(
         prompt,
         device,
@@ -72,9 +70,7 @@ def call_pipeline(
 
     latents = randn_tensor([1,4,64,64], generator=generator, device=device, dtype=prompt_embeds.dtype)
 
-
-    # Concatenate the unconditional and text embeddings into a single batch
-    # to avoid doing two forward passes
+    # Concatenate unconditional and conditional embeddings
     if do_classifier_free_guidance:
         prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
 

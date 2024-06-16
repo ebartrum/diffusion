@@ -72,22 +72,20 @@ def call_pipeline(
         negative_prompt=negative_prompt,
     )
 
-    do_classifier_free_guidance=True,
-    # For classifier free guidance, we need to do two forward passes.
-    # Here we concatenate the unconditional and text embeddings into a single batch
+    do_classifier_free_guidance=True
+
+    # Concatenate the unconditional and text embeddings into a single batch
     # to avoid doing two forward passes
     if do_classifier_free_guidance:
         prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
 
-    # 4. Prepare timesteps
     timesteps, num_inference_steps = retrieve_timesteps(
         scheduler, num_inference_steps, device, timesteps=None, sigmas=None
     )
 
-    # 5. Prepare latent variables
     latents = randn_tensor([1,4,64,64], generator=generator, device=device, dtype=prompt_embeds.dtype)
 
-    # 7. Denoising loop
+    # Denoise the latents
     for i, t in tqdm(enumerate(timesteps), total=len(timesteps)):
         # expand the latents if we are doing classifier free guidance
         latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents

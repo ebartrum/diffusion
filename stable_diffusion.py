@@ -82,7 +82,9 @@ def denoise_latents(
     )
 
     # Denoise the latents
-    for i, t in tqdm(enumerate(timesteps), total=len(timesteps)):
+    pbar = tqdm(enumerate(timesteps), total=len(timesteps))
+    for i, t in pbar:
+        pbar.set_description(f"t: {t}")
         # expand the latents if we are doing classifier free guidance
         latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
 

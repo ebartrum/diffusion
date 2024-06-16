@@ -84,14 +84,6 @@ def call_pipeline(
 ):
     pipeline._cross_attention_kwargs = None
 
-    # 2. Define call parameters
-    if prompt is not None and isinstance(prompt, str):
-        batch_size = 1
-    elif prompt is not None and isinstance(prompt, list):
-        batch_size = len(prompt)
-    else:
-        batch_size = prompt_embeds.shape[0]
-
     device = pipeline._execution_device
 
     prompt_embeds, negative_prompt_embeds = pipeline.encode_prompt(
@@ -121,7 +113,6 @@ def call_pipeline(
 
     # 7. Denoising loop
     num_warmup_steps = len(timesteps) - num_inference_steps * scheduler.order
-    pipeline._num_timesteps = len(timesteps)
 
     for i, t in tqdm(enumerate(timesteps), total=len(timesteps)):
         # expand the latents if we are doing classifier free guidance
@@ -143,10 +134,6 @@ def call_pipeline(
 
         # compute the previous noisy sample x_t -> x_t-1
         latents = scheduler.step(noise_pred, t, latents, return_dict=False)[0]
-
-            # # call the callback, if provided
-            # if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % scheduler.order == 0):
-            #     progress_bar.update()
 
     image = pipeline.vae.decode(latents / pipeline.vae.config.scaling_factor,
                                 return_dict=False, generator=generator)[0]

@@ -1,7 +1,7 @@
 model_id: stabilityai/stable-diffusion-2-1-base
 model_dir: ./hf-models
 prompt: A cute and realistic kitten
-negative_prompt: Oversaturated, blurry, low quality
+negative_prompt:
 img_resolution: 512
 num_inference_steps: 35
 guidance_scale: 8

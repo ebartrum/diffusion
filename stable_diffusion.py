@@ -125,7 +125,6 @@ def call_pipeline(
         for i, t in enumerate(timesteps):
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
-            latent_model_input = scheduler.scale_model_input(latent_model_input, t)
 
             # predict the noise residual
             noise_pred = pipeline.unet(

@@ -112,8 +112,6 @@ def call_pipeline(
     latents = randn_tensor([1,4,64,64], generator=generator, device=device, dtype=prompt_embeds.dtype)
 
     # 7. Denoising loop
-    num_warmup_steps = len(timesteps) - num_inference_steps * scheduler.order
-
     for i, t in tqdm(enumerate(timesteps), total=len(timesteps)):
         # expand the latents if we are doing classifier free guidance
         latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents

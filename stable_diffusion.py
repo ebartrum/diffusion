@@ -27,7 +27,11 @@ def main(cfg):
     del pipe.scheduler
 
     generator = torch.Generator(device=device).manual_seed(cfg.seed)
-    image = call_pipeline(
+    noisy_latents = randn_tensor([1,4,64,64], generator=generator, device=device,
+           dtype=pipe.dtype)
+    
+    clean_latents = denoise_latents(
+        noisy_latents,
         pipe,
         device,
         scheduler=ddim,
@@ -36,11 +40,17 @@ def main(cfg):
         guidance_scale=cfg.guidance_scale,
         num_inference_steps=cfg.num_inference_steps,
         generator=generator
-    )[0]
+    )
+
+    image = pipe.vae.decode(clean_latents / pipe.vae.config.scaling_factor,
+                                return_dict=False, generator=generator)[0]
+    image = (image / 2 + 0.5).clamp(0, 1)
+
     save_image(image, os.path.join(cfg.output_dir,cfg.output_file))
 
 @torch.no_grad()
-def call_pipeline(
+def denoise_latents(
+    latents,
     pipeline,
     device,
     scheduler,
@@ -51,6 +61,7 @@ def call_pipeline(
     generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
     do_classifier_free_guidance=True,
 ):
+
     prompt_embeds, negative_prompt_embeds = pipeline.encode_prompt(
         prompt,
         device,
@@ -58,8 +69,6 @@ def call_pipeline(
         do_classifier_free_guidance=True,
         negative_prompt=negative_prompt,
     )
-
-    latents = randn_tensor([1,4,64,64], generator=generator, device=device, dtype=prompt_embeds.dtype)
 
     # Concatenate unconditional and conditional embeddings
     if do_classifier_free_guidance:
@@ -90,10 +99,7 @@ def call_pipeline(
         # compute the previous noisy sample x_t -> x_t-1
         latents = scheduler.step(noise_pred, t, latents, return_dict=False)[0]
 
-    image = pipeline.vae.decode(latents / pipeline.vae.config.scaling_factor,
-                                return_dict=False, generator=generator)[0]
-    image = (image / 2 + 0.5).clamp(0, 1)
-    return image
+    return latents
 
 if __name__ == "__main__":
     main()

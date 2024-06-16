@@ -17,6 +17,7 @@ from diffusers.models import AutoencoderKL, ImageProjection, UNet2DConditionMode
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import retrieve_timesteps
 from diffusers.pipelines.stable_diffusion.pipeline_output import StableDiffusionPipelineOutput
 from diffusers.utils.torch_utils import randn_tensor
+from tqdm import tqdm
 
 @hydra.main(config_path="conf",
             config_name="config", version_base=None)
@@ -121,41 +122,31 @@ def call_pipeline(
     # 7. Denoising loop
     num_warmup_steps = len(timesteps) - num_inference_steps * scheduler.order
     pipeline._num_timesteps = len(timesteps)
-    with pipeline.progress_bar(total=num_inference_steps) as progress_bar:
-        for i, t in enumerate(timesteps):
-            # expand the latents if we are doing classifier free guidance
-            latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
+    # with pipeline.progress_bar(total=num_inference_steps) as progress_bar:
+    for i, t in tqdm(enumerate(timesteps)):
+        # expand the latents if we are doing classifier free guidance
+        latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
 
-            # predict the noise residual
-            noise_pred = pipeline.unet(
-                latent_model_input,
-                t,
-                encoder_hidden_states=prompt_embeds,
-                cross_attention_kwargs=pipeline.cross_attention_kwargs,
-                return_dict=False,
-            )[0]
+        # predict the noise residual
+        noise_pred = pipeline.unet(
+            latent_model_input,
+            t,
+            encoder_hidden_states=prompt_embeds,
+            cross_attention_kwargs=pipeline.cross_attention_kwargs,
+            return_dict=False,
+        )[0]
 
-            # perform guidance
-            if do_classifier_free_guidance:
-                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+        # perform guidance
+        if do_classifier_free_guidance:
+            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-            # compute the previous noisy sample x_t -> x_t-1
-            latents = scheduler.step(noise_pred, t, latents, return_dict=False)[0]
+        # compute the previous noisy sample x_t -> x_t-1
+        latents = scheduler.step(noise_pred, t, latents, return_dict=False)[0]
 
-            if callback_on_step_end is not None:
-                callback_kwargs = {}
-                for k in callback_on_step_end_tensor_inputs:
-                    callback_kwargs[k] = locals()[k]
-                callback_outputs = callback_on_step_end(pipeline, i, t, callback_kwargs)
-
-                latents = callback_outputs.pop("latents", latents)
-                prompt_embeds = callback_outputs.pop("prompt_embeds", prompt_embeds)
-                negative_prompt_embeds = callback_outputs.pop("negative_prompt_embeds", negative_prompt_embeds)
-
-            # call the callback, if provided
-            if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % scheduler.order == 0):
-                progress_bar.update()
+            # # call the callback, if provided
+            # if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % scheduler.order == 0):
+            #     progress_bar.update()
 
     image = pipeline.vae.decode(latents / pipeline.vae.config.scaling_factor,
                                 return_dict=False, generator=generator)[0]

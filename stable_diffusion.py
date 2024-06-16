@@ -13,7 +13,6 @@ from diffusers.configuration_utils import FrozenDict
 from diffusers.image_processor import PipelineImageInput, VaeImageProcessor
 from diffusers.loaders import FromSingleFileMixin, IPAdapterMixin, LoraLoaderMixin, TextualInversionLoaderMixin
 from diffusers.models import AutoencoderKL, ImageProjection, UNet2DConditionModel
-from diffusers.models.lora import adjust_lora_scale_text_encoder
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import retrieve_timesteps
 from diffusers.pipelines.stable_diffusion.pipeline_output import StableDiffusionPipelineOutput
 from diffusers.utils.torch_utils import randn_tensor
@@ -82,49 +81,7 @@ def call_pipeline(
     callback_on_step_end_tensor_inputs: List[str] = ["latents"],
     **kwargs,
 ):
-    callback = kwargs.pop("callback", None)
-    callback_steps = kwargs.pop("callback_steps", None)
-
-    if callback is not None:
-        deprecate(
-            "callback",
-            "1.0.0",
-            "Passing `callback` as an input argument to `__call__` is deprecated, consider using `callback_on_step_end`",
-        )
-    if callback_steps is not None:
-        deprecate(
-            "callback_steps",
-            "1.0.0",
-            "Passing `callback_steps` as an input argument to `__call__` is deprecated, consider using `callback_on_step_end`",
-        )
-
-    if isinstance(callback_on_step_end, (PipelineCallback, MultiPipelineCallbacks)):
-        callback_on_step_end_tensor_inputs = callback_on_step_end.tensor_inputs
-
-    # 0. Default height and width to unet
-    height = height or pipeline.unet.config.sample_size * pipeline.vae_scale_factor
-    width = width or pipeline.unet.config.sample_size * pipeline.vae_scale_factor
-    # to deal with lora scaling and other possible forward hooks
-
-    # 1. Check inputs. Raise error if not correct
-    pipeline.check_inputs(
-        prompt,
-        height,
-        width,
-        callback_steps,
-        negative_prompt,
-        prompt_embeds,
-        negative_prompt_embeds,
-        ip_adapter_image,
-        ip_adapter_image_embeds,
-        callback_on_step_end_tensor_inputs,
-    )
-
-    pipeline._guidance_scale = guidance_scale
-    pipeline._guidance_rescale = guidance_rescale
-    pipeline._clip_skip = clip_skip
-    pipeline._cross_attention_kwargs = cross_attention_kwargs
-    pipeline._interrupt = False
+    pipeline._cross_attention_kwargs = None
 
     # 2. Define call parameters
     if prompt is not None and isinstance(prompt, str):
@@ -136,37 +93,22 @@ def call_pipeline(
 
     device = pipeline._execution_device
 
-    # 3. Encode input prompt
-    lora_scale = (
-        pipeline.cross_attention_kwargs.get("scale", None) if pipeline.cross_attention_kwargs is not None else None
-    )
-
     prompt_embeds, negative_prompt_embeds = pipeline.encode_prompt(
         prompt,
         device,
-        num_images_per_prompt,
-        pipeline.do_classifier_free_guidance,
-        negative_prompt,
+        num_images_per_prompt=1,
+        do_classifier_free_guidance=True,
+        negative_prompt=negative_prompt,
         prompt_embeds=prompt_embeds,
         negative_prompt_embeds=negative_prompt_embeds,
-        lora_scale=lora_scale,
-        clip_skip=pipeline.clip_skip,
     )
 
+    do_classifier_free_guidance=True,
     # For classifier free guidance, we need to do two forward passes.
     # Here we concatenate the unconditional and text embeddings into a single batch
     # to avoid doing two forward passes
-    if pipeline.do_classifier_free_guidance:
+    if do_classifier_free_guidance:
         prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
-
-    if ip_adapter_image is not None or ip_adapter_image_embeds is not None:
-        image_embeds = pipeline.prepare_ip_adapter_image_embeds(
-            ip_adapter_image,
-            ip_adapter_image_embeds,
-            device,
-            batch_size * num_images_per_prompt,
-            pipeline.do_classifier_free_guidance,
-        )
 
     # 4. Prepare timesteps
     timesteps, num_inference_steps = retrieve_timesteps(
@@ -179,32 +121,16 @@ def call_pipeline(
 
     # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
     extra_step_kwargs = {}
-
-    # 6.1 Add image embeds for IP-Adapter
-    added_cond_kwargs = (
-        {"image_embeds": image_embeds}
-        if (ip_adapter_image is not None or ip_adapter_image_embeds is not None)
-        else None
-    )
-
-    # 6.2 Optionally get Guidance Scale Embedding
     timestep_cond = None
-    if pipeline.unet.config.time_cond_proj_dim is not None:
-        guidance_scale_tensor = torch.tensor(pipeline.guidance_scale - 1).repeat(batch_size * num_images_per_prompt)
-        timestep_cond = pipeline.get_guidance_scale_embedding(
-            guidance_scale_tensor, embedding_dim=pipeline.unet.config.time_cond_proj_dim
-        ).to(device=device, dtype=latents.dtype)
+    added_cond_kwargs = {}
 
     # 7. Denoising loop
     num_warmup_steps = len(timesteps) - num_inference_steps * scheduler.order
     pipeline._num_timesteps = len(timesteps)
     with pipeline.progress_bar(total=num_inference_steps) as progress_bar:
         for i, t in enumerate(timesteps):
-            if pipeline.interrupt:
-                continue
-
             # expand the latents if we are doing classifier free guidance
-            latent_model_input = torch.cat([latents] * 2) if pipeline.do_classifier_free_guidance else latents
+            latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
             latent_model_input = scheduler.scale_model_input(latent_model_input, t)
 
             # predict the noise residual
@@ -219,13 +145,10 @@ def call_pipeline(
             )[0]
 
             # perform guidance
-            if pipeline.do_classifier_free_guidance:
+            if do_classifier_free_guidance:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                noise_pred = noise_pred_uncond + pipeline.guidance_scale * (noise_pred_text - noise_pred_uncond)
+                noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-            if pipeline.do_classifier_free_guidance and pipeline.guidance_rescale > 0.0:
-                # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=pipeline.guidance_rescale)
 
             # compute the previous noisy sample x_t -> x_t-1
             latents = scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
@@ -243,9 +166,6 @@ def call_pipeline(
             # call the callback, if provided
             if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % scheduler.order == 0):
                 progress_bar.update()
-                if callback is not None and i % callback_steps == 0:
-                    step_idx = i // getattr(scheduler, "order", 1)
-                    callback(step_idx, t, latents)
 
     if not output_type == "latent":
         image = pipeline.vae.decode(latents / pipeline.vae.config.scaling_factor, return_dict=False, generator=generator)[

@@ -37,7 +37,7 @@ def main(cfg):
     del pipe.scheduler
 
     generator = torch.Generator(device=device).manual_seed(cfg.seed)
-    pipe_output = call_pipeline(
+    image = call_pipeline(
         pipe,
         scheduler=ddim,
         prompt=cfg.prompt,
@@ -46,8 +46,7 @@ def main(cfg):
         guidance_scale=cfg.guidance_scale,
         num_inference_steps=cfg.num_inference_steps,
         generator=generator
-    )
-    image = pipe_output.images[0]
+    )[0]
     image.save(os.path.join(output_dir,"out.png"))
 
 @torch.no_grad()
@@ -158,29 +157,11 @@ def call_pipeline(
             if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % scheduler.order == 0):
                 progress_bar.update()
 
-    if not output_type == "latent":
-        image = pipeline.vae.decode(latents / pipeline.vae.config.scaling_factor, return_dict=False, generator=generator)[
-            0
-        ]
-        image, has_nsfw_concept = pipeline.run_safety_checker(image, device, prompt_embeds.dtype)
-    else:
-        image = latents
-        has_nsfw_concept = None
-
-    if has_nsfw_concept is None:
-        do_denormalize = [True] * image.shape[0]
-    else:
-        do_denormalize = [not has_nsfw for has_nsfw in has_nsfw_concept]
-
+    image = pipeline.vae.decode(latents / pipeline.vae.config.scaling_factor,
+                                return_dict=False, generator=generator)[0]
+    do_denormalize = [True]
     image = pipeline.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
-
-    # Offload all models
-    pipeline.maybe_free_model_hooks()
-
-    if not return_dict:
-        return (image, has_nsfw_concept)
-
-    return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
+    return image
 
 if __name__ == "__main__":
     main()

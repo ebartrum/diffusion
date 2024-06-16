@@ -42,11 +42,14 @@ def main(cfg):
         generator=generator
     )
 
-    image = pipe.vae.decode(clean_latents / pipe.vae.config.scaling_factor,
-                                return_dict=False, generator=generator)[0]
-    image = (image / 2 + 0.5).clamp(0, 1)
-
+    image = latents2img(clean_latents, pipe, generator)
     save_image(image, os.path.join(cfg.output_dir,cfg.output_file))
+
+def latents2img(latents, pipe, generator):
+    image = pipe.vae.decode(latents / pipe.vae.config.scaling_factor,
+        return_dict=False, generator=generator)[0]
+    image = (image/2 + 0.5).clamp(0, 1)
+    return image
 
 @torch.no_grad()
 def denoise_latents(

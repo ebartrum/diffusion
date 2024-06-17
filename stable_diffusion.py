@@ -74,6 +74,7 @@ def denoise_latents(
     negative_prompt: Optional[Union[str, List[str]]] = None,
     generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
     do_classifier_free_guidance=True,
+    save_trajectory_len=5,
 ):
 
     trajectory = OrderedDict() 
@@ -92,6 +93,9 @@ def denoise_latents(
     timesteps, num_inference_steps = retrieve_timesteps(
         scheduler, num_inference_steps, device, timesteps=None, sigmas=None
     )
+    trajectory_log_indices = \
+        torch.linspace(0,num_inference_steps,
+           save_trajectory_len+1).round().int()[:-1]
 
     # Denoise the latents
     pbar = tqdm(enumerate(timesteps), total=len(timesteps))
@@ -119,7 +123,7 @@ def denoise_latents(
         ddim_output = scheduler.step(noise_pred, t, latents)
         latents = ddim_output['prev_sample']
 
-        if i%7 == 0:
+        if i in trajectory_log_indices:
             trajectory[t.item()] = ddim_output['pred_original_sample']
 
     return latents, trajectory

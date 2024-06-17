@@ -68,6 +68,7 @@ def denoising_step(
         pred_epsilon_uncond: torch.Tensor,
         timestep: int,
         sample: torch.Tensor,
+        guidance_mode: str = "cfg",
     ):
         # get previous step value (=t-1)
         prev_timestep = timestep - scheduler.config.num_train_timesteps // scheduler.num_inference_steps
@@ -81,7 +82,10 @@ def denoising_step(
         pred_original_sample = (sample - beta_prod_t ** (0.5) * pred_epsilon) / alpha_prod_t ** (0.5)
 
         # compute "direction pointing to x_t" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
-        pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * pred_epsilon
+        if guidance_mode == "cfg":
+            pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * pred_epsilon
+        elif guidance_mode == "cfgpp":
+            pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * pred_epsilon_uncond
 
         # compute x_t without "random noise" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
         prev_sample = alpha_prod_t_prev ** (0.5) * pred_original_sample + pred_sample_direction
@@ -145,7 +149,7 @@ def denoise_latents(
             noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
         # compute the previous noisy sample x_t -> x_t-1
-        ddim_output = denoising_step(scheduler, noise_pred, noise_pred_uncond, t, latents)
+        ddim_output = denoising_step(scheduler, noise_pred, noise_pred_uncond, t, latents, guidance_mode="cfg")
         latents = ddim_output['prev_sample']
 
         if i in trajectory_log_indices:

@@ -72,7 +72,6 @@ def step(
         generator=None,
         variance_noise: Optional[torch.Tensor] = None,
     ):
-        import ipdb;ipdb.set_trace()
         # 1. get previous step value (=t-1)
         prev_timestep = timestep - scheduler.config.num_train_timesteps // scheduler.num_inference_steps
 
@@ -134,7 +133,6 @@ def step(
                     model_output.shape, generator=generator, device=model_output.device, dtype=model_output.dtype
                 )
             variance = std_dev_t * variance_noise
-
             prev_sample = prev_sample + variance
 
         return {'prev_sample': prev_sample,

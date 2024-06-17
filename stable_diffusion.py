@@ -40,6 +40,7 @@ def main(cfg):
         prompt=cfg.prompt,
         negative_prompt=cfg.negative_prompt,
         guidance_scale=cfg.guidance_scale,
+        guidance_mode=cfg.guidance_mode,
         num_inference_steps=cfg.num_inference_steps,
         generator=generator
     )
@@ -87,7 +88,7 @@ def denoising_step(
         elif guidance_mode == "cfgpp":
             pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * pred_epsilon_uncond
         else:
-            raise ValueError, f"Unknown guidance_mode {guidance_mode}!"
+            raise ValueError(f"Unknown guidance_mode {guidance_mode}!")
 
         # compute x_t without "random noise" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
         prev_sample = alpha_prod_t_prev ** (0.5) * pred_original_sample + pred_sample_direction
@@ -104,6 +105,7 @@ def denoise_latents(
     prompt: Union[str, List[str]] = None,
     num_inference_steps: int = 50,
     guidance_scale: float = 7.5,
+    guidance_mode: str = "cfg",
     negative_prompt: Optional[Union[str, List[str]]] = None,
     generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
     do_classifier_free_guidance=True,
@@ -151,7 +153,8 @@ def denoise_latents(
             noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
         # compute the previous noisy sample x_t -> x_t-1
-        ddim_output = denoising_step(scheduler, noise_pred, noise_pred_uncond, t, latents, guidance_mode="cfg")
+        ddim_output = denoising_step(scheduler, noise_pred, noise_pred_uncond,
+             t, latents, guidance_mode=guidance_mode)
         latents = ddim_output['prev_sample']
 
         if i in trajectory_log_indices:

@@ -120,7 +120,7 @@ def denoise_latents(
         latents = ddim_output['prev_sample']
 
         if i%7 == 0:
-            trajectory[t] = ddim_output['pred_original_sample']
+            trajectory[t.item()] = ddim_output['pred_original_sample']
 
     return latents, trajectory
 

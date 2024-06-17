@@ -62,9 +62,10 @@ def latents2img(latents, pipe, generator):
     image = (image/2 + 0.5).clamp(0, 1)
     return image
 
-def cfg_step(
+def denoising_step(
         scheduler,
-        model_output: torch.Tensor,
+        pred_epsilon: torch.Tensor,
+        pred_epsilon_uncond: torch.Tensor,
         timestep: int,
         sample: torch.Tensor,
     ):
@@ -77,8 +78,7 @@ def cfg_step(
 
         beta_prod_t = 1 - alpha_prod_t
 
-        pred_original_sample = (sample - beta_prod_t ** (0.5) * model_output) / alpha_prod_t ** (0.5)
-        pred_epsilon = model_output
+        pred_original_sample = (sample - beta_prod_t ** (0.5) * pred_epsilon) / alpha_prod_t ** (0.5)
 
         # compute "direction pointing to x_t" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
         pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * pred_epsilon
@@ -145,7 +145,7 @@ def denoise_latents(
             noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
         # compute the previous noisy sample x_t -> x_t-1
-        ddim_output = cfg_step(scheduler, noise_pred, t, latents)
+        ddim_output = denoising_step(scheduler, noise_pred, noise_pred_uncond, t, latents)
         latents = ddim_output['prev_sample']
 
         if i in trajectory_log_indices:

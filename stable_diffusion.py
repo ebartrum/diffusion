@@ -112,12 +112,10 @@ def denoise_latents(
             return_dict=False,
         )[0]
 
-
         # perform guidance
         if do_classifier_free_guidance:
             noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
             noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
-
 
         # compute the previous noisy sample x_t -> x_t-1
         ddim_output = scheduler.step(noise_pred, t, latents)

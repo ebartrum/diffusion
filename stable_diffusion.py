@@ -62,7 +62,7 @@ def latents2img(latents, pipe, generator):
     image = (image/2 + 0.5).clamp(0, 1)
     return image
 
-def step(
+def cfg_step(
         scheduler,
         model_output: torch.Tensor,
         timestep: int,
@@ -145,7 +145,7 @@ def denoise_latents(
             noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
         # compute the previous noisy sample x_t -> x_t-1
-        ddim_output = step(scheduler, noise_pred, t, latents)
+        ddim_output = cfg_step(scheduler, noise_pred, t, latents)
         latents = ddim_output['prev_sample']
 
         if i in trajectory_log_indices:

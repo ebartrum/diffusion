@@ -75,7 +75,7 @@ def invert(
     return torch.cat(intermediate_latents)
 
 device = torch.device("cuda:0")
-pipe = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5").to(device)
+pipe = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-base").to(device)
 pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
 
 img = Image.open("./data/frontal_face.jpg").convert("RGB")
@@ -88,12 +88,14 @@ input_image_prompt = "A man"
 with torch.no_grad():
     latent = pipe.vae.encode(img.unsqueeze(0)*2 - 1)
 
-l = 0.18215 * latent.latent_dist.sample()
+l = pipe.vae.config.scaling_factor * latent.latent_dist.sample()
 
 cfg = 1
 num_steps = 999
 
-inverted_latents = invert(l, input_image_prompt, num_inference_steps=num_steps,
+inverted_latents = invert(
+      l, input_image_prompt,
+      num_inference_steps=num_steps,
       guidance_scale=cfg,
       device=device)
 
@@ -104,6 +106,6 @@ reconstruction = pipe(input_image_prompt, latents=final_inverted_latent,
       output_type="pt").images[0]
 
 combined_output = torch.cat((img,reconstruction),2)
+
 torchvision.utils.save_image(combined_output,"out/inversion.png")
-plt.imshow(combined_output.cpu().permute(1,2,0))
-plt.show()
+torch.save(final_inverted_latent, "out/final_inverted_latent.pt")

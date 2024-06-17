@@ -114,12 +114,13 @@ def denoise_latents(
             noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
             noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-        if i%7 == 0:
-            current_pred_z0 = latents.clone() - noise_pred
-            trajectory[t] = current_pred_z0
 
         # compute the previous noisy sample x_t -> x_t-1
-        latents = scheduler.step(noise_pred, t, latents, return_dict=False)[0]
+        ddim_output = scheduler.step(noise_pred, t, latents)
+        latents = ddim_output['prev_sample']
+
+        if i%7 == 0:
+            trajectory[t] = ddim_output['pred_original_sample']
 
     return latents, trajectory
 

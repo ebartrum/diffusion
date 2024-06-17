@@ -67,10 +67,6 @@ def step(
         model_output: torch.Tensor,
         timestep: int,
         sample: torch.Tensor,
-        eta: float = 0.0,
-        use_clipped_model_output: bool = False,
-        generator=None,
-        variance_noise: Optional[torch.Tensor] = None,
     ):
         # get previous step value (=t-1)
         prev_timestep = timestep - scheduler.config.num_train_timesteps // scheduler.num_inference_steps

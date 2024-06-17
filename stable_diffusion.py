@@ -72,68 +72,23 @@ def step(
         generator=None,
         variance_noise: Optional[torch.Tensor] = None,
     ):
-        # 1. get previous step value (=t-1)
+        # get previous step value (=t-1)
         prev_timestep = timestep - scheduler.config.num_train_timesteps // scheduler.num_inference_steps
 
-        # 2. compute alphas, betas
+        # compute alphas, betas
         alpha_prod_t = scheduler.alphas_cumprod[timestep]
         alpha_prod_t_prev = scheduler.alphas_cumprod[prev_timestep] if prev_timestep >= 0 else scheduler.final_alpha_cumprod
 
         beta_prod_t = 1 - alpha_prod_t
 
-        # 3. compute predicted original sample from predicted noise also called
-        # "predicted x_0" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
-        if scheduler.config.prediction_type == "epsilon":
-            pred_original_sample = (sample - beta_prod_t ** (0.5) * model_output) / alpha_prod_t ** (0.5)
-            pred_epsilon = model_output
-        elif scheduler.config.prediction_type == "sample":
-            pred_original_sample = model_output
-            pred_epsilon = (sample - alpha_prod_t ** (0.5) * pred_original_sample) / beta_prod_t ** (0.5)
-        elif scheduler.config.prediction_type == "v_prediction":
-            pred_original_sample = (alpha_prod_t**0.5) * sample - (beta_prod_t**0.5) * model_output
-            pred_epsilon = (alpha_prod_t**0.5) * model_output + (beta_prod_t**0.5) * sample
-        else:
-            raise ValueError(
-                f"prediction_type given as {scheduler.config.prediction_type} must be one of `epsilon`, `sample`, or"
-                " `v_prediction`"
-            )
+        pred_original_sample = (sample - beta_prod_t ** (0.5) * model_output) / alpha_prod_t ** (0.5)
+        pred_epsilon = model_output
 
-        # 4. Clip or threshold "predicted x_0"
-        if scheduler.config.thresholding:
-            pred_original_sample = scheduler._threshold_sample(pred_original_sample)
-        elif scheduler.config.clip_sample:
-            pred_original_sample = pred_original_sample.clamp(
-                -scheduler.config.clip_sample_range, scheduler.config.clip_sample_range
-            )
+        # compute "direction pointing to x_t" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
+        pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * pred_epsilon
 
-        # 5. compute variance: "sigma_t(η)" -> see formula (16)
-        # σ_t = sqrt((1 − α_t−1)/(1 − α_t)) * sqrt(1 − α_t/α_t−1)
-        variance = scheduler._get_variance(timestep, prev_timestep)
-        std_dev_t = eta * variance ** (0.5)
-
-        if use_clipped_model_output:
-            # the pred_epsilon is always re-derived from the clipped x_0 in Glide
-            pred_epsilon = (sample - alpha_prod_t ** (0.5) * pred_original_sample) / beta_prod_t ** (0.5)
-
-        # 6. compute "direction pointing to x_t" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
-        pred_sample_direction = (1 - alpha_prod_t_prev - std_dev_t**2) ** (0.5) * pred_epsilon
-
-        # 7. compute x_t without "random noise" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
+        # compute x_t without "random noise" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
         prev_sample = alpha_prod_t_prev ** (0.5) * pred_original_sample + pred_sample_direction
-
-        if eta > 0:
-            if variance_noise is not None and generator is not None:
-                raise ValueError(
-                    "Cannot pass both generator and variance_noise. Please make sure that either `generator` or"
-                    " `variance_noise` stays `None`."
-                )
-
-            if variance_noise is None:
-                variance_noise = randn_tensor(
-                    model_output.shape, generator=generator, device=model_output.device, dtype=model_output.dtype
-                )
-            variance = std_dev_t * variance_noise
-            prev_sample = prev_sample + variance
 
         return {'prev_sample': prev_sample,
                 'pred_original_sample': pred_original_sample}

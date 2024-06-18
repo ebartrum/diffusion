@@ -7,11 +7,13 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 from torchvision.utils import save_image
+from torchvision.transforms.functional import to_tensor, center_crop
 from typing import Any, Callable, Dict, List, Optional, Union
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import retrieve_timesteps
 from diffusers.utils.torch_utils import randn_tensor
 from tqdm import tqdm
 from collections import OrderedDict
+from PIL import Image
 
 @hydra.main(config_path="conf",
             config_name="config", version_base=None)
@@ -29,11 +31,33 @@ def main(cfg):
     del pipe.scheduler
 
     generator = torch.Generator(device=device).manual_seed(cfg.seed)
-    noisy_latents = randn_tensor([1,4,64,64], generator=generator, device=device,
-           dtype=pipe.dtype)
+
+    input_image_path = "~/Documents/repos/diffusion/data/frontal_face.jpg"
+    img = Image.open("./data/frontal_face.jpg").convert("RGB")
+    img = to_tensor(img).to(device)
+    img = center_crop(img,min(img.shape[1],img.shape[2]))
+    img = F.interpolate(img.unsqueeze(0),512).squeeze(0)
+    input_image_prompt = "A man"
+    with torch.no_grad():
+        latent = pipe.vae.encode(img.unsqueeze(0)*2 - 1)
+
+    z0 = pipe.vae.config.scaling_factor * latent.latent_dist.sample()
+
+    inversion_trajectory = invert(
+          z0, pipe, device,
+          scheduler=ddim,
+          prompt=cfg.prompt,
+          negative_prompt=cfg.negative_prompt,
+          num_inference_steps=cfg.num_inference_steps,
+          guidance_scale=cfg.guidance_scale,
+          guidance_mode=cfg.guidance_mode,
+          generator=generator,
+          )
+
+    final_inverted_latent = inversion_trajectory[-1]
     
     clean_latents, trajectory = denoise_latents(
-        noisy_latents,
+        final_inverted_latent,
         pipe,
         device,
         scheduler=ddim,
@@ -95,6 +119,96 @@ def denoising_step(
 
         return {'prev_sample': prev_sample,
                 'pred_original_sample': pred_original_sample}
+
+def inversion_step(
+        scheduler,
+        pred_epsilon: torch.Tensor,
+        pred_epsilon_uncond: torch.Tensor,
+        timestep: int,
+        sample: torch.Tensor,
+        guidance_mode: str = "cfg",
+    ):
+        print(f"inversion_step: {timestep}")
+        # get previous step value (=t-1)
+        next_timestep = timestep + scheduler.config.num_train_timesteps // scheduler.num_inference_steps
+        if next_timestep > 999:
+            next_timestep = 999
+
+        # compute alphas, betas
+        alpha_prod_t = scheduler.alphas_cumprod[timestep]
+        alpha_prod_t_next = scheduler.alphas_cumprod[next_timestep]
+
+        beta_prod_t = 1 - alpha_prod_t
+
+        if guidance_mode == "cfg":
+            pred_original_sample = (sample - beta_prod_t ** (0.5) * pred_epsilon) / alpha_prod_t ** (0.5)
+        elif guidance_mode == "cfgpp":
+            pred_original_sample = (sample - beta_prod_t ** (0.5) * pred_epsilon_uncond) / alpha_prod_t ** (0.5)
+        else:
+            raise ValueError(f"Unknown guidance_mode {guidance_mode}!")
+
+        # compute "direction pointing to x_t" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
+        pred_sample_direction = (1 - alpha_prod_t_next) ** (0.5) * pred_epsilon
+
+        next_sample = alpha_prod_t_next ** (0.5) * pred_original_sample + pred_sample_direction
+
+        return {'next_sample': next_sample,
+                'pred_original_sample': pred_original_sample}
+@torch.no_grad()
+def invert(
+          z0, pipeline, device,
+          scheduler,
+          prompt: Union[str, List[str]] = None,
+          negative_prompt: Optional[Union[str, List[str]]] = None,
+          num_inference_steps: int = 50,
+          guidance_scale: float = 7.5,
+          guidance_mode: str = "cfg",
+          do_classifier_free_guidance=True,
+          generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+          ):
+
+    inversion_trajectory = [z0]
+    prompt_embeds, negative_prompt_embeds = pipeline.encode_prompt(
+        prompt,
+        device,
+        num_images_per_prompt=1,
+        do_classifier_free_guidance=True,
+        negative_prompt=negative_prompt,
+    )
+
+    if do_classifier_free_guidance:
+        prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
+
+    latents = z0.clone()
+
+    timesteps, num_inference_steps = retrieve_timesteps(
+        scheduler, num_inference_steps, device, timesteps=None, sigmas=None
+    )
+    reverse_timesteps = reversed(timesteps)
+
+    for i, t in enumerate(reverse_timesteps):
+        # expand the latents if we are doing classifier free guidance
+        latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
+
+        # predict the noise residual
+        noise_pred = pipeline.unet(
+            latent_model_input,
+            t,
+            encoder_hidden_states=prompt_embeds,
+            return_dict=False,
+        )[0]
+
+        # perform guidance
+        if do_classifier_free_guidance:
+            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+
+        inversion_output = inversion_step(scheduler, noise_pred, noise_pred_uncond,
+             t, latents, guidance_mode=guidance_mode)
+        latents = inversion_output['next_sample']
+        inversion_trajectory.append(latents.clone())
+
+    return inversion_trajectory
 
 @torch.no_grad()
 def denoise_latents(

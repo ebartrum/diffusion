@@ -43,7 +43,7 @@ def main(cfg):
 
     z0 = pipe.vae.config.scaling_factor * latent.latent_dist.sample()
 
-    inversion_trajectory = invert(
+    inversion_trajectory, inversion_logging_trajectory = invert(
           z0,
           pipe,
           device,
@@ -79,9 +79,16 @@ def main(cfg):
         img_trajectory = [F.interpolate(img, 128) for img in img_trajectory]
         img_trajectory = torch.cat(img_trajectory, -1)
 
+        inversion_img_trajectory = [latents2img(l, pipe, generator) for l in inversion_logging_trajectory.values()]
+        inversion_img_trajectory = [F.interpolate(img, 128) for img in inversion_img_trajectory]
+        inversion_img_trajectory = torch.cat(inversion_img_trajectory, -1)
+
     img_trajectory_output_file = cfg.output_file.replace('.','_trajectory.')
+    inversion_img_trajectory_output_file = cfg.output_file.replace('.','_invert_trajectory.')
     save_image(img_trajectory, os.path.join(cfg.output_dir,
             img_trajectory_output_file))
+    save_image(inversion_img_trajectory, os.path.join(cfg.output_dir,
+            inversion_img_trajectory_output_file))
 
 def latents2img(latents, pipe, generator):
     image = pipe.vae.decode(latents / pipe.vae.config.scaling_factor,
@@ -167,8 +174,10 @@ def invert(
           guidance_mode: str = "cfg",
           do_classifier_free_guidance=True,
           generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+          save_trajectory_len=5,
           ):
 
+    logging_trajectory = OrderedDict() 
     inversion_trajectory = [z0]
     prompt_embeds, negative_prompt_embeds = pipeline.encode_prompt(
         prompt,
@@ -187,6 +196,9 @@ def invert(
         scheduler, num_inference_steps, device, timesteps=None, sigmas=None
     )
     reverse_timesteps = reversed(timesteps)
+    trajectory_log_indices = \
+        torch.linspace(0,num_inference_steps,
+           save_trajectory_len+1).round().int()[:-1]
 
     for i, t in enumerate(reverse_timesteps):
         # expand the latents if we are doing classifier free guidance
@@ -209,8 +221,10 @@ def invert(
              t, latents, guidance_mode=guidance_mode)
         latents = inversion_output['next_sample']
         inversion_trajectory.append(latents.clone())
+        if i in trajectory_log_indices:
+            logging_trajectory[t.item()] = inversion_output['pred_original_sample']
 
-    return inversion_trajectory
+    return inversion_trajectory, logging_trajectory
 
 @torch.no_grad()
 def denoise_latents(

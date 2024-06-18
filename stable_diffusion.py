@@ -44,13 +44,15 @@ def main(cfg):
     z0 = pipe.vae.config.scaling_factor * latent.latent_dist.sample()
 
     inversion_trajectory = invert(
-          z0, pipe, device,
+          z0,
+          pipe,
+          device,
           scheduler=ddim,
           prompt=cfg.prompt,
           negative_prompt=cfg.negative_prompt,
-          num_inference_steps=cfg.num_inference_steps,
           guidance_scale=cfg.guidance_scale,
           guidance_mode=cfg.guidance_mode,
+          num_inference_steps=cfg.num_inference_steps,
           generator=generator,
           )
 

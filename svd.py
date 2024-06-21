@@ -16,4 +16,4 @@ image = image.resize((1024, 576))
 generator = torch.manual_seed(42)
 frames = pipe(image, decode_chunk_size=8, generator=generator).frames[0]
 
-export_to_video(frames, "generated.mp4", fps=7)
+export_to_video(frames, "out/generated.mp4", fps=7)

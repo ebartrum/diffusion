@@ -11,14 +11,13 @@ pipe = StableVideoDiffusionPipeline.from_pretrained(
 pipe.enable_model_cpu_offload()
 
 @dataclass
-class Config:
+class DefaultConfig:
     motion_bucket_id: int = 60
     output_file: str = "generated.mp4"
     image_path: str = "../gaussian-splatting/data/face/images/frame_00044.jpg"
 
-default_cfg = OmegaConf.structured(Config)
-cli_cfg = OmegaConf.from_cli()
-cfg = OmegaConf.merge(default_cfg, cli_cfg)
+cfg = OmegaConf.merge(OmegaConf.structured(DefaultConfig),
+      OmegaConf.from_cli())
 
 # Load the conditioning image
 image = Image.open("../gaussian-splatting/data/face/images/frame_00044.jpg")

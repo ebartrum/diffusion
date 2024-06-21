@@ -14,6 +14,6 @@ image = Image.open("../gaussian-splatting/data/face/images/frame_00044.jpg")
 image = image.resize((1024, 576))
 
 generator = torch.manual_seed(42)
-frames = pipe(image, decode_chunk_size=8, generator=generator).frames[0]
+frames = pipe(image, decode_chunk_size=8, generator=generator, motion_bucket_id=60).frames[0]
 
 export_to_video(frames, "out/generated.mp4", fps=7)

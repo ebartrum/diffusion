@@ -43,7 +43,7 @@ def main(cfg):
 
     z0 = pipe.vae.config.scaling_factor * latent.latent_dist.sample()
 
-    inversion_trajectory, inversion_logging_trajectory = invert(
+    inverted_latents, inversion_logging_trajectory = invert(
           z0,
           pipe,
           device,
@@ -56,7 +56,7 @@ def main(cfg):
           generator=generator,
           )
 
-    final_inverted_latent = inversion_trajectory[-1]
+    final_inverted_latent = inverted_latents[-1]
     
     clean_latents, trajectory = denoise_latents(
         final_inverted_latent,

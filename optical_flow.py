@@ -87,7 +87,9 @@ def apply_warp(img, flow):
     flow = identity_flow #temporarily switch to identity flow
     flow[:,0] /= img.shape[2]
     flow[:,1] /= img.shape[1]
-    # import ipdb;ipdb.set_trace()
+
+    #set flow to range [-1,1]
+    flow = flow*2 - 1
 
     flow_permute = torch.permute(flow, (0, 2, 3, 1))
     remapped = torch.nn.functional.grid_sample(img.unsqueeze(0), flow_permute)

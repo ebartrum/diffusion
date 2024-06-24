@@ -6,6 +6,22 @@ from diffusers.pipelines.stable_video_diffusion.pipeline_stable_video_diffusion 
 from diffusers.utils.torch_utils import is_compiled_module, randn_tensor
 from diffusers.schedulers.scheduling_euler_discrete import EulerDiscreteSchedulerOutput
 
+def apply_warp(img, flow):
+    grid_x, grid_y = torch.meshgrid(torch.tensor(range(img.shape[1])),
+        torch.tensor(range(img.shape[2])), indexing='ij')
+    identity_flow = torch.stack([grid_y,grid_x]).unsqueeze(0).to(img.device).float()
+    flow = identity_flow - flow #switch from pixel offsets to absolute positions
+
+    #Normalize flow
+    flow[:,0] /= img.shape[2]
+    flow[:,1] /= img.shape[1]
+
+    #set flow to range [-1,1]
+    flow = flow*2 - 1
+
+    remapped = torch.nn.functional.grid_sample(img.permute(0,3,1,2), flow.permute(0,2,3,1))
+    return remapped
+
 def new_step(
     scheduler,
     model_output: torch.FloatTensor,
@@ -103,6 +119,18 @@ def new_step(
         )
 
     #New logic here; apply the flow. For now, we can use a lambda of 0.5 for the interpolation.
+    #need to update pred original sample here.
+    #Need to update the first prediction in the batch using flow1, and the second one
+    #using flow2.
+
+    low_res_flow1 = torch.nn.functional.interpolate(flow1, (sample.shape[-2], sample.shape[-1]))
+    low_res_flow2 = torch.nn.functional.interpolate(flow2, (sample.shape[-2], sample.shape[-1]))
+    n_frames = pred_original_sample.shape[1]
+    low_res_flow1 = low_res_flow1.repeat(n_frames,1,1,1)
+    low_res_flow2 = low_res_flow2.repeat(n_frames,1,1,1)
+
+    warped_tweedie_estimate1 = apply_warp(pred_original_sample[0].permute(0,2,3,1), low_res_flow1)
+
     import ipdb;ipdb.set_trace()
 
     # 2. Convert to an ODE derivative

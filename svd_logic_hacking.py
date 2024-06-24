@@ -129,9 +129,17 @@ def new_step(
     low_res_flow1 = low_res_flow1.repeat(n_frames,1,1,1)
     low_res_flow2 = low_res_flow2.repeat(n_frames,1,1,1)
 
+    #This latent is the 0th batch elt, warped to align with the 1st batch elt
     warped_tweedie_estimate1 = apply_warp(pred_original_sample[0].permute(0,2,3,1), low_res_flow1)
 
-    import ipdb;ipdb.set_trace()
+    #This latent is the 1st batch elt, warped to align with the 0th batch elt
+    warped_tweedie_estimate2 = apply_warp(pred_original_sample[1].permute(0,2,3,1), low_res_flow2)
+
+    cross_view_guidance = torch.stack([warped_tweedie_estimate2, warped_tweedie_estimate1])
+
+    #Apply the guidance
+    pred_original_sample = (pred_original_sample + cross_view_guidance) / 2
+
 
     # 2. Convert to an ODE derivative
     derivative = (sample - pred_original_sample) / sigma_hat

@@ -48,8 +48,8 @@ _ = urlretrieve(video_url, video_path)
 frames, _, _ = read_video(str(video_path))
 frames = frames.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
 
-img1_batch = torch.stack([frames[100], frames[150]])
-img2_batch = torch.stack([frames[101], frames[151]])
+img1_batch = torch.stack([frames[100]])
+img2_batch = torch.stack([frames[101]])
 plot(img1_batch)
 
 # If you can, run this example on a GPU, it will be a lot faster.
@@ -71,6 +71,8 @@ predicted_flows = list_of_flows[-1]
 print(f"dtype = {predicted_flows.dtype}")
 print(f"shape = {predicted_flows.shape} = (N, 2, H, W)")
 print(f"min = {predicted_flows.min()}, max = {predicted_flows.max()}")
+
+# import ipdb;ipdb.set_trace()
 
 flow_imgs = flow_to_image(predicted_flows)
 

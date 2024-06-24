@@ -11,7 +11,8 @@ def new_step(
     model_output: torch.FloatTensor,
     timestep: Union[float, torch.FloatTensor],
     sample: torch.FloatTensor,
-    flow: Optional[torch.FloatTensor] = None,
+    flow1: Optional[torch.FloatTensor] = None,
+    flow2: Optional[torch.FloatTensor] = None,
     s_churn: float = 0.0,
     s_tmin: float = 0.0,
     s_tmax: float = float("inf"),
@@ -143,7 +144,8 @@ def new_call(
     callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
     callback_on_step_end_tensor_inputs: List[str] = ["latents"],
     return_dict: bool = True,
-    flow: Optional[torch.tensor] = None,
+    flow1: Optional[torch.FloatTensor] = None,
+    flow2: Optional[torch.FloatTensor] = None,
 ):
     r"""
     The call function to the pipeline for generation.
@@ -328,7 +330,7 @@ def new_call(
                 noise_pred = noise_pred_uncond + pipe.guidance_scale * (noise_pred_cond - noise_pred_uncond)
 
             # compute the previous noisy sample x_t -> x_t-1
-            step_output = new_step(pipe.scheduler, noise_pred, t, latents, flow=flow)
+            step_output = new_step(pipe.scheduler, noise_pred, t, latents, flow1=flow1, flow2=flow2)
             latents, tweedie_estimate = step_output.prev_sample, step_output.pred_original_sample
 
             if callback_on_step_end is not None:

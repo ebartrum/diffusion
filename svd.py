@@ -27,11 +27,12 @@ img1 = img1.resize((1024, 576))
 img2 = Image.open("../gaussian-splatting/data/face/images/frame_00045.jpg")
 img2 = img2.resize((1024, 576))
 
-flow = torch.load("data/flows_44_to_45.pt").cuda()
+flow1 = torch.load("data/flows_44_to_45.pt").cuda()
+flow2 = torch.load("data/flows_45_to_44.pt").cuda()
 
 generator = torch.manual_seed(42)
 frames = new_call(pipe, [img1,img2], decode_chunk_size=8, generator=generator,
-  motion_bucket_id=cfg.motion_bucket_id, flow=flow).frames
+  motion_bucket_id=cfg.motion_bucket_id, flow1=flow1, flow2=flow2).frames
 
 print(f"Saving video 0 to out/{cfg.output_file0} ...")
 export_to_video(frames[0], f"out/{cfg.output_file0}", fps=7)

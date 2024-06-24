@@ -110,7 +110,14 @@ def apply_warp(img, flow):
 img1_warped = apply_warp(img1_batch[0], predicted_flows)
 img1_warped = [img1_warped.squeeze(0)]
 
-grid = [img1_batch, img1_warped, img2_batch]
-plot(grid)
+# import ipdb;ipdb.set_trace()
 
-plt.show()
+from torchvision.utils import save_image
+save_image(img1_batch, "out/optical_flow/img1.png")
+save_image(img1_warped, "out/optical_flow/img1_warped.png")
+save_image(img2_batch, "out/optical_flow/img2.png")
+
+# grid = [img1_batch, img1_warped, img2_batch]
+# plot(grid)
+
+# plt.show()

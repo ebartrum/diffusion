@@ -3,12 +3,14 @@ import torch
 import torchvision.transforms.functional as F
 import torchvision.transforms as T
 from torchvision.io import read_video
+from torchvision.io import read_image
 from torchvision.utils import save_image
 import tempfile
 from pathlib import Path
 from urllib.request import urlretrieve
 from torchvision.utils import flow_to_image
 from torchvision.models.optical_flow import raft_large
+import os
 
 def preprocess(batch):
     transforms = T.Compose(
@@ -38,7 +40,6 @@ def plot(imgs, **imshow_kwargs):
 
     plt.tight_layout()
 
-from torchvision.io import read_image
 img1_path = "/home/ed/Documents/data/nerfstudio/face/images/frame_00044.jpg"
 img2_path = "/home/ed/Documents/data/nerfstudio/face/images/frame_00045.jpg"
 img1_batch = read_image(img1_path).unsqueeze(0)
@@ -92,5 +93,5 @@ save_image(img1_batch, "out/optical_flow/img1.png")
 save_image(img1_warped, "out/optical_flow/img1_warped.png")
 save_image(img2_batch, "out/optical_flow/img2.png")
 
-flow_filename = "flow.pt"
+flow_filename = f"flow_{os.path.basename(img1_path).replace('.jpg','')}_{os.path.basename(img2_path).replace('.jpg','')}.pt"
 torch.save(predicted_flows, f"out/optical_flow/{flow_filename}")

@@ -50,7 +50,7 @@ frames = frames.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
 
 img1_batch = torch.stack([frames[100]])
 img2_batch = torch.stack([frames[101]])
-plot(img1_batch)
+# plot(img1_batch)
 
 # If you can, run this example on a GPU, it will be a lot faster.
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -79,7 +79,8 @@ flow_imgs = flow_to_image(predicted_flows)
 # The images have been mapped into [-1, 1] but for plotting we want them in [0, 1]
 img1_batch = [(img1 + 1) / 2 for img1 in img1_batch]
 
-grid = [[img1, flow_img] for (img1, flow_img) in zip(img1_batch, flow_imgs)]
+grid = img1_batch
+# grid = [[img1, flow_img] for (img1, flow_img) in zip(img1_batch, flow_imgs)]
 plot(grid)
 
 plt.show()

@@ -81,6 +81,14 @@ img1_batch = [(img + 1) / 2 for img in img1_batch]
 img2_batch = [(img + 1) / 2 for img in img2_batch]
 
 def apply_warp(img, flow):
+    grid_x, grid_y = torch.meshgrid(torch.tensor(range(img.shape[1])),
+        torch.tensor(range(img.shape[2])), indexing='ij')
+    identity_flow = torch.stack([grid_x,grid_y]).unsqueeze(0).to(img.device).float()
+    flow = identity_flow #temporarily switch to identity flow
+    flow[:,0] /= 520
+    flow[:,1] /= 960
+    # import ipdb;ipdb.set_trace()
+
     flow_permute = torch.permute(flow, (0, 2, 3, 1))
     remapped = torch.nn.functional.grid_sample(img.unsqueeze(0), flow_permute)
     return remapped

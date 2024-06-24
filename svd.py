@@ -4,7 +4,7 @@ from diffusers import StableVideoDiffusionPipeline
 from diffusers.utils import load_image, export_to_video
 from PIL import Image
 from dataclasses import dataclass
-from svd_logic_hacking import new_call
+from svd_logic_hacking import new_call, new_step
 
 pipe = StableVideoDiffusionPipeline.from_pretrained(
     "stabilityai/stable-video-diffusion-img2vid-xt", torch_dtype=torch.float16, variant="fp16"

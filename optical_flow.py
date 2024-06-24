@@ -7,10 +7,22 @@ from torchvision.io import read_video
 import tempfile
 from pathlib import Path
 from urllib.request import urlretrieve
+from torchvision.utils import flow_to_image
+from torchvision.models.optical_flow import raft_large
 
 plt.rcParams["savefig.bbox"] = "tight"
 # sphinx_gallery_thumbnail_number = 2
 
+def preprocess(batch):
+    transforms = T.Compose(
+        [
+            T.ConvertImageDtype(torch.float32),
+            T.Normalize(mean=0.5, std=0.5),  # map [0, 1] into [-1, 1]
+            T.Resize(size=(520, 960)),
+        ]
+    )
+    batch = transforms(batch)
+    return batch
 
 def plot(imgs, **imshow_kwargs):
     if not isinstance(imgs[0], list):
@@ -38,20 +50,7 @@ frames = frames.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
 
 img1_batch = torch.stack([frames[100], frames[150]])
 img2_batch = torch.stack([frames[101], frames[151]])
-
 plot(img1_batch)
-
-def preprocess(batch):
-    transforms = T.Compose(
-        [
-            T.ConvertImageDtype(torch.float32),
-            T.Normalize(mean=0.5, std=0.5),  # map [0, 1] into [-1, 1]
-            T.Resize(size=(520, 960)),
-        ]
-    )
-    batch = transforms(batch)
-    return batch
-
 
 # If you can, run this example on a GPU, it will be a lot faster.
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -60,8 +59,6 @@ img1_batch = preprocess(img1_batch).to(device)
 img2_batch = preprocess(img2_batch).to(device)
 
 print(f"shape = {img1_batch.shape}, dtype = {img1_batch.dtype}")
-
-from torchvision.models.optical_flow import raft_large
 
 model = raft_large(pretrained=True, progress=False).to(device)
 model = model.eval()
@@ -74,8 +71,6 @@ predicted_flows = list_of_flows[-1]
 print(f"dtype = {predicted_flows.dtype}")
 print(f"shape = {predicted_flows.shape} = (N, 2, H, W)")
 print(f"min = {predicted_flows.min()}, max = {predicted_flows.max()}")
-
-from torchvision.utils import flow_to_image
 
 flow_imgs = flow_to_image(predicted_flows)
 

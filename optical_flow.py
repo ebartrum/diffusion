@@ -1,17 +1,14 @@
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
 import torchvision.transforms.functional as F
 import torchvision.transforms as T
 from torchvision.io import read_video
+from torchvision.utils import save_image
 import tempfile
 from pathlib import Path
 from urllib.request import urlretrieve
 from torchvision.utils import flow_to_image
 from torchvision.models.optical_flow import raft_large
-
-plt.rcParams["savefig.bbox"] = "tight"
-# sphinx_gallery_thumbnail_number = 2
 
 def preprocess(batch):
     transforms = T.Compose(
@@ -41,26 +38,11 @@ def plot(imgs, **imshow_kwargs):
 
     plt.tight_layout()
 
-video_url = "https://download.pytorch.org/tutorial/pexelscom_pavel_danilyuk_basketball_hd.mp4"
-video_path = Path(tempfile.mkdtemp()) / "basketball.mp4"
-_ = urlretrieve(video_url, video_path)
-
-# frames, _, _ = read_video(str(video_path))
-# frames = frames.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
-
-# img1_batch = torch.stack([frames[100]])
-# img2_batch = torch.stack([frames[130]])
-
 from torchvision.io import read_image
 img1_path = "/home/ed/Documents/data/nerfstudio/face/images/frame_00044.jpg"
 img2_path = "/home/ed/Documents/data/nerfstudio/face/images/frame_00045.jpg"
-img1_batch = read_image(
-    "/home/ed/Documents/data/nerfstudio/face/images/frame_00044.jpg").unsqueeze(0)
-img2_batch = read_image(
-    "/home/ed/Documents/data/nerfstudio/face/images/frame_00045.jpg").unsqueeze(0)
-
-# import ipdb;ipdb.set_trace()
-# plot(img1_batch)
+img1_batch = read_image(img1_path).unsqueeze(0)
+img2_batch = read_image(img2_path).unsqueeze(0)
 
 # If you can, run this example on a GPU, it will be a lot faster.
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -81,10 +63,6 @@ predicted_flows = list_of_flows[-1]
 print(f"dtype = {predicted_flows.dtype}")
 print(f"shape = {predicted_flows.shape} = (N, 2, H, W)")
 print(f"min = {predicted_flows.min()}, max = {predicted_flows.max()}")
-
-# import ipdb;ipdb.set_trace()
-
-# flow_imgs = flow_to_image(predicted_flows)
 
 # The images have been mapped into [-1, 1] but for plotting we want them in [0, 1]
 img1_batch = [(img + 1) / 2 for img in img1_batch]
@@ -110,14 +88,9 @@ def apply_warp(img, flow):
 img1_warped = apply_warp(img1_batch[0], predicted_flows)
 img1_warped = [img1_warped.squeeze(0)]
 
-# import ipdb;ipdb.set_trace()
-
-from torchvision.utils import save_image
 save_image(img1_batch, "out/optical_flow/img1.png")
 save_image(img1_warped, "out/optical_flow/img1_warped.png")
 save_image(img2_batch, "out/optical_flow/img2.png")
 
-# grid = [img1_batch, img1_warped, img2_batch]
-# plot(grid)
-
-# plt.show()
+flow_filename = "flow.pt"
+torch.save(predicted_flows, f"out/optical_flow/{flow_filename}")

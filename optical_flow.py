@@ -94,7 +94,7 @@ def apply_warp(img, flow):
     grid_x, grid_y = torch.meshgrid(torch.tensor(range(img.shape[1])),
         torch.tensor(range(img.shape[2])), indexing='ij')
     identity_flow = torch.stack([grid_y,grid_x]).unsqueeze(0).to(img.device).float()
-    flow = flow + identity_flow #switch from pixel offsets to absolute positions
+    flow = identity_flow - flow #switch from pixel offsets to absolute positions
 
     #Normalize flow
     flow[:,0] /= img.shape[2]

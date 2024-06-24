@@ -45,11 +45,21 @@ video_url = "https://download.pytorch.org/tutorial/pexelscom_pavel_danilyuk_bask
 video_path = Path(tempfile.mkdtemp()) / "basketball.mp4"
 _ = urlretrieve(video_url, video_path)
 
-frames, _, _ = read_video(str(video_path))
-frames = frames.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
+# frames, _, _ = read_video(str(video_path))
+# frames = frames.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
 
-img1_batch = torch.stack([frames[100]])
-img2_batch = torch.stack([frames[101]])
+# img1_batch = torch.stack([frames[100]])
+# img2_batch = torch.stack([frames[130]])
+
+from torchvision.io import read_image
+img1_path = "/home/ed/Documents/data/nerfstudio/face/images/frame_00044.jpg"
+img2_path = "/home/ed/Documents/data/nerfstudio/face/images/frame_00045.jpg"
+img1_batch = read_image(
+    "/home/ed/Documents/data/nerfstudio/face/images/frame_00044.jpg").unsqueeze(0)
+img2_batch = read_image(
+    "/home/ed/Documents/data/nerfstudio/face/images/frame_00045.jpg").unsqueeze(0)
+
+# import ipdb;ipdb.set_trace()
 # plot(img1_batch)
 
 # If you can, run this example on a GPU, it will be a lot faster.
@@ -101,7 +111,6 @@ img1_warped = apply_warp(img1_batch[0], predicted_flows)
 img1_warped = [img1_warped.squeeze(0)]
 
 grid = [img1_batch, img1_warped, img2_batch]
-# grid = [[img1, flow_img] for (img1, flow_img) in zip(img1_batch, flow_imgs)]
 plot(grid)
 
 plt.show()

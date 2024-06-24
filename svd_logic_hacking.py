@@ -13,8 +13,11 @@ def apply_warp(img, flow):
     flow = identity_flow - flow #switch from pixel offsets to absolute positions
 
     #Normalize flow
-    flow[:,0] /= img.shape[2]
-    flow[:,1] /= img.shape[1]
+    # flow[:,0] /= img.shape[2]
+    # import ipdb;ipdb.set_trace()
+    flow[:,0] /= 960
+    # flow[:,1] /= img.shape[1]
+    flow[:,1] /= 520
 
     #set flow to range [-1,1]
     flow = flow*2 - 1

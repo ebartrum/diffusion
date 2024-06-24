@@ -140,9 +140,11 @@ def new_step(
 
     cross_view_guidance = torch.stack([warped_tweedie_estimate2, warped_tweedie_estimate1])
 
-    #Apply the guidance
-    pred_original_sample = (pred_original_sample + cross_view_guidance) / 2
 
+    #Apply the guidance
+    pred_original_sample = (pred_original_sample + cross_view_guidance)
+    guidance_normalisation = (1-(cross_view_guidance==0).float()) + 1
+    pred_original_sample = pred_original_sample / guidance_normalisation
 
     # 2. Convert to an ODE derivative
     derivative = (sample - pred_original_sample) / sigma_hat

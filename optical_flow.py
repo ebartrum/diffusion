@@ -100,7 +100,7 @@ def apply_warp(img, flow):
 img1_warped = apply_warp(img1_batch[0], predicted_flows)
 img1_warped = [img1_warped.squeeze(0)]
 
-grid = [img1_warped, img2_batch]
+grid = [img1_batch, img1_warped, img2_batch]
 # grid = [[img1, flow_img] for (img1, flow_img) in zip(img1_batch, flow_imgs)]
 plot(grid)
 

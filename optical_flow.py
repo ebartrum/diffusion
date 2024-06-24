@@ -74,12 +74,21 @@ print(f"min = {predicted_flows.min()}, max = {predicted_flows.max()}")
 
 # import ipdb;ipdb.set_trace()
 
-flow_imgs = flow_to_image(predicted_flows)
+# flow_imgs = flow_to_image(predicted_flows)
 
 # The images have been mapped into [-1, 1] but for plotting we want them in [0, 1]
-img1_batch = [(img1 + 1) / 2 for img1 in img1_batch]
+img1_batch = [(img + 1) / 2 for img in img1_batch]
+img2_batch = [(img + 1) / 2 for img in img2_batch]
 
-grid = img1_batch
+def apply_warp(img, flow):
+    flow_permute = torch.permute(flow, (0, 2, 3, 1))
+    remapped = torch.nn.functional.grid_sample(img.unsqueeze(0), flow_permute)
+    return remapped
+
+img1_warped = apply_warp(img1_batch[0], predicted_flows)
+img1_warped = [img1_warped.squeeze(0)]
+
+grid = [img1_warped, img2_batch]
 # grid = [[img1, flow_img] for (img1, flow_img) in zip(img1_batch, flow_imgs)]
 plot(grid)
 

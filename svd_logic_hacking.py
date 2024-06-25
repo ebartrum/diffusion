@@ -32,6 +32,7 @@ def new_step(
     sample: torch.FloatTensor,
     flow1: Optional[torch.FloatTensor] = None,
     flow2: Optional[torch.FloatTensor] = None,
+    guidance_lambda: float = 0.5,
     s_churn: float = 0.0,
     s_tmin: float = 0.0,
     s_tmax: float = float("inf"),
@@ -142,9 +143,9 @@ def new_step(
 
 
     #Apply the guidance
-    pred_original_sample = (pred_original_sample + cross_view_guidance)
-    guidance_normalisation = (1-(cross_view_guidance==0).float()) + 1
-    pred_original_sample = pred_original_sample / guidance_normalisation
+    pred_original_sample = pred_original_sample + guidance_lambda*(cross_view_guidance - pred_original_sample)
+    # guidance_normalisation = (1-(cross_view_guidance==0).float()) + 1
+    # pred_original_sample = pred_original_sample / guidance_normalisation
 
     # 2. Convert to an ODE derivative
     derivative = (sample - pred_original_sample) / sigma_hat
@@ -187,6 +188,7 @@ def new_call(
     return_dict: bool = True,
     flow1: Optional[torch.FloatTensor] = None,
     flow2: Optional[torch.FloatTensor] = None,
+    guidance_lambda: float = 0.5,
 ):
     r"""
     The call function to the pipeline for generation.
@@ -371,7 +373,9 @@ def new_call(
                 noise_pred = noise_pred_uncond + pipe.guidance_scale * (noise_pred_cond - noise_pred_uncond)
 
             # compute the previous noisy sample x_t -> x_t-1
-            step_output = new_step(pipe.scheduler, noise_pred, t, latents, flow1=flow1, flow2=flow2)
+            step_output = new_step(pipe.scheduler, noise_pred, t, latents,
+                   flow1=flow1, flow2=flow2,
+                   guidance_lambda=guidance_lambda)
             latents, tweedie_estimate = step_output.prev_sample, step_output.pred_original_sample
 
             if callback_on_step_end is not None:

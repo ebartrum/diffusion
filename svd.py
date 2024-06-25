@@ -15,6 +15,7 @@ pipe.enable_model_cpu_offload()
 class DefaultConfig:
     motion_bucket_id: int = 60
     num_inference_steps: int = 25
+    guidance_lambda: float = 0.5
     output_file: str = "multi_video.mp4"
     image_path: str = "../gaussian-splatting/data/face/images/frame_00044.jpg"
 
@@ -34,7 +35,8 @@ generator = torch.manual_seed(42)
 frames = new_call(pipe, [img1,img2], decode_chunk_size=8,
   generator=generator, num_inference_steps=cfg.num_inference_steps,
   motion_bucket_id=cfg.motion_bucket_id,
-  flow1=flow1, flow2=flow2, output_type='pt', return_dict=False)
+  flow1=flow1, flow2=flow2, guidance_lambda=cfg.guidance_lambda,
+  output_type='pt', return_dict=False)
 
 combined_frames = torch.cat([frames[0],frames[1]], dim=2)
 combined_frames = (combined_frames*255).to(torch.uint8).cpu()

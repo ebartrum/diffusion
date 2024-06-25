@@ -1,7 +1,7 @@
 import torch
+from torchvision.io import write_video
 from omegaconf import OmegaConf
 from diffusers import StableVideoDiffusionPipeline
-from diffusers.utils import load_image, export_to_video
 from PIL import Image
 from dataclasses import dataclass
 from svd_logic_hacking import new_call, new_step
@@ -14,8 +14,8 @@ pipe.enable_model_cpu_offload()
 @dataclass
 class DefaultConfig:
     motion_bucket_id: int = 60
-    output_file0: str = "generated0.mp4"
-    output_file1: str = "generated1.mp4"
+    num_inference_steps: int = 25
+    output_file: str = "multi_video.mp4"
     image_path: str = "../gaussian-splatting/data/face/images/frame_00044.jpg"
 
 cfg = OmegaConf.merge(OmegaConf.structured(DefaultConfig),
@@ -31,10 +31,11 @@ flow1 = torch.load("data/flows_44_to_45.pt").cuda()
 flow2 = torch.load("data/flows_45_to_44.pt").cuda()
 
 generator = torch.manual_seed(42)
-frames = new_call(pipe, [img1,img2], decode_chunk_size=8, generator=generator,
-  motion_bucket_id=cfg.motion_bucket_id, flow1=flow1, flow2=flow2).frames
+frames = new_call(pipe, [img1,img2], decode_chunk_size=8,
+  generator=generator, num_inference_steps=cfg.num_inference_steps,
+  motion_bucket_id=cfg.motion_bucket_id,
+  flow1=flow1, flow2=flow2, output_type='pt', return_dict=False)
 
-print(f"Saving video 0 to out/{cfg.output_file0} ...")
-export_to_video(frames[0], f"out/{cfg.output_file0}", fps=7)
-print(f"Saving video 1 to out/{cfg.output_file1} ...")
-export_to_video(frames[1], f"out/{cfg.output_file1}", fps=7)
+combined_frames = torch.cat([frames[0],frames[1]], dim=2)
+combined_frames = (combined_frames*255).to(torch.uint8).cpu()
+write_video(f"out/{cfg.output_file}", combined_frames.permute(0,2,3,1), fps=7)

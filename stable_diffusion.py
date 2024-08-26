@@ -281,7 +281,18 @@ def denoise_latents(
 
         # perform guidance
         if do_classifier_free_guidance:
-            noise_pred_uncond, noise_pred_cond = noise_pred.chunk(2)
+            noise_pred_uncond, _ = noise_pred.chunk(2)
+            prev_timestep = t - scheduler.config.num_train_timesteps // scheduler.num_inference_steps
+            alpha_prod_t = scheduler.alphas_cumprod[t]
+            alpha_prod_t_prev = scheduler.alphas_cumprod[prev_timestep] if prev_timestep >= 0 else scheduler.final_alpha_cumprod
+            beta_prod_t = 1 - alpha_prod_t
+            pred_original_sample_uncond = (latents - beta_prod_t ** (0.5) * noise_pred_uncond) / alpha_prod_t ** (0.5)
+            pred_rgb_uncond = pipeline.vae.decode(pred_original_sample_uncond / pipeline.vae.config.scaling_factor, return_dict=False)[0]
+            updated_pred_rgb_uncond = pred_rgb_uncond
+            updated_pred_original_sample_uncond = pipeline.vae.encode(updated_pred_rgb_uncond).latent_dist.sample()*pipeline.vae.config.scaling_factor
+            updated_noise_pred_uncond = (updated_pred_original_sample_uncond * alpha_prod_t**(0.5) - latents) / (-beta_prod_t**(0.5))
+            noise_pred_cond = updated_noise_pred_uncond
+            import ipdb;ipdb.set_trace()
             noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_cond - noise_pred_uncond)
 
         # compute the previous noisy sample x_t -> x_t-1

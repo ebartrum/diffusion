@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 from torchvision.utils import save_image
+from torchvision.io import read_image
 from torchvision.transforms.functional import to_tensor, center_crop
 from typing import Any, Callable, Dict, List, Optional, Union
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import retrieve_timesteps
@@ -244,6 +245,9 @@ def denoise_latents(
     save_trajectory_len=5,
 ):
 
+    guidance_frame = read_image("data/lifted_guidance_frame.png").float().to(device) / 255.
+    guidance_frame = 2*guidance_frame - 1
+    guidance_frame_mask = read_image("data/lifted_guidance_frame_mask.png").float().to(device) / 255.
     trajectory = OrderedDict() 
     prompt_embeds, negative_prompt_embeds = pipeline.encode_prompt(
         prompt,
@@ -288,11 +292,10 @@ def denoise_latents(
             beta_prod_t = 1 - alpha_prod_t
             pred_original_sample_uncond = (latents - beta_prod_t ** (0.5) * noise_pred_uncond) / alpha_prod_t ** (0.5)
             pred_rgb_uncond = pipeline.vae.decode(pred_original_sample_uncond / pipeline.vae.config.scaling_factor, return_dict=False)[0]
-            updated_pred_rgb_uncond = pred_rgb_uncond
+            updated_pred_rgb_uncond = pred_rgb_uncond*(1-guidance_frame_mask.unsqueeze(0)) + (guidance_frame*guidance_frame_mask).unsqueeze(0)
             updated_pred_original_sample_uncond = pipeline.vae.encode(updated_pred_rgb_uncond).latent_dist.sample()*pipeline.vae.config.scaling_factor
             updated_noise_pred_uncond = (updated_pred_original_sample_uncond * alpha_prod_t**(0.5) - latents) / (-beta_prod_t**(0.5))
             noise_pred_cond = updated_noise_pred_uncond
-            import ipdb;ipdb.set_trace()
             noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_cond - noise_pred_uncond)
 
         # compute the previous noisy sample x_t -> x_t-1

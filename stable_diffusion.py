@@ -216,8 +216,8 @@ def invert(
 
         # perform guidance
         if do_classifier_free_guidance:
-            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+            noise_pred_uncond, noise_pred_cond = noise_pred.chunk(2)
+            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_cond - noise_pred_uncond)
 
         inversion_output = inversion_step(scheduler, noise_pred, noise_pred_uncond,
              t, latents, guidance_mode=guidance_mode)
@@ -281,8 +281,8 @@ def denoise_latents(
 
         # perform guidance
         if do_classifier_free_guidance:
-            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+            noise_pred_uncond, noise_pred_cond = noise_pred.chunk(2)
+            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_cond - noise_pred_uncond)
 
         # compute the previous noisy sample x_t -> x_t-1
         ddim_output = denoising_step(scheduler, noise_pred, noise_pred_uncond,

@@ -32,34 +32,35 @@ def main(cfg):
 
     generator = torch.Generator(device=device).manual_seed(cfg.seed)
 
-    input_image_path = "~/Documents/repos/diffusion/data/frontal_face.jpg"
-    img = Image.open("./data/frontal_face.jpg").convert("RGB")
-    img = to_tensor(img).to(device)
-    img = center_crop(img,min(img.shape[1],img.shape[2]))
-    img = F.interpolate(img.unsqueeze(0),512).squeeze(0)
-    input_image_prompt = "A man"
-    with torch.no_grad():
-        latent = pipe.vae.encode(img.unsqueeze(0)*2 - 1)
+    if cfg.inversion:
+        input_image_path = "~/Documents/repos/diffusion/data/frontal_face.jpg"
+        img = Image.open("./data/frontal_face.jpg").convert("RGB")
+        img = to_tensor(img).to(device)
+        img = center_crop(img,min(img.shape[1],img.shape[2]))
+        img = F.interpolate(img.unsqueeze(0),512).squeeze(0)
+        with torch.no_grad():
+            latent = pipe.vae.encode(img.unsqueeze(0)*2 - 1)
+        z0 = pipe.vae.config.scaling_factor * latent.latent_dist.sample()
+        inverted_latents, inversion_logging_trajectory = invert(
+              z0,
+              pipe,
+              device,
+              scheduler=ddim,
+              prompt=cfg.prompt,
+              negative_prompt=cfg.negative_prompt,
+              guidance_scale=cfg.guidance_scale,
+              guidance_mode=cfg.guidance_mode,
+              num_inference_steps=cfg.num_inference_steps,
+              generator=generator,
+              )
 
-    z0 = pipe.vae.config.scaling_factor * latent.latent_dist.sample()
-
-    inverted_latents, inversion_logging_trajectory = invert(
-          z0,
-          pipe,
-          device,
-          scheduler=ddim,
-          prompt=cfg.prompt,
-          negative_prompt=cfg.negative_prompt,
-          guidance_scale=cfg.guidance_scale,
-          guidance_mode=cfg.guidance_mode,
-          num_inference_steps=cfg.num_inference_steps,
-          generator=generator,
-          )
-
-    final_inverted_latent = inverted_latents[-1]
+        final_inverted_latent = inverted_latents[-1]
+        input_latent = final_inverted_latent
+    else:
+        input_latent = torch.randn((1,4,64,64), device=device)
     
     clean_latents, trajectory = denoise_latents(
-        final_inverted_latent,
+        input_latent,
         pipe,
         device,
         scheduler=ddim,
@@ -78,17 +79,18 @@ def main(cfg):
         img_trajectory = [latents2img(l, pipe, generator) for l in trajectory.values()]
         img_trajectory = [F.interpolate(img, 128) for img in img_trajectory]
         img_trajectory = torch.cat(img_trajectory, -1)
+        img_trajectory_output_file = cfg.output_file.replace('.','_trajectory.')
+        save_image(img_trajectory, os.path.join(cfg.output_dir,
+                img_trajectory_output_file))
 
-        inversion_img_trajectory = [latents2img(l, pipe, generator) for l in inversion_logging_trajectory.values()]
-        inversion_img_trajectory = [F.interpolate(img, 128) for img in inversion_img_trajectory]
-        inversion_img_trajectory = torch.cat(inversion_img_trajectory, -1)
-
-    img_trajectory_output_file = cfg.output_file.replace('.','_trajectory.')
-    inversion_img_trajectory_output_file = cfg.output_file.replace('.','_invert_trajectory.')
-    save_image(img_trajectory, os.path.join(cfg.output_dir,
-            img_trajectory_output_file))
-    save_image(inversion_img_trajectory, os.path.join(cfg.output_dir,
-            inversion_img_trajectory_output_file))
+        if cfg.inversion:
+            inversion_img_trajectory = [latents2img(l, pipe, generator) for l
+                in inversion_logging_trajectory.values()]
+            inversion_img_trajectory = [F.interpolate(img, 128) for img in inversion_img_trajectory]
+            inversion_img_trajectory = torch.cat(inversion_img_trajectory, -1)
+            inversion_img_trajectory_output_file = cfg.output_file.replace('.','_invert_trajectory.')
+            save_image(inversion_img_trajectory, os.path.join(cfg.output_dir,
+                    inversion_img_trajectory_output_file))
 
 def latents2img(latents, pipe, generator):
     image = pipe.vae.decode(latents / pipe.vae.config.scaling_factor,

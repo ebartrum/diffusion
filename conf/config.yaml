@@ -10,6 +10,7 @@ guidance_scale: 8
 guidance_mode: cfg
 seed: 42
 local_files_only: True
+inversion: False
 hydra:
   output_subdir: null
   run:

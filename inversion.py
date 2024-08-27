@@ -1,17 +1,14 @@
 from functools import partial
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
-
 import numpy as np
 import PIL
 from PIL import Image
 import torch
 import torch.nn.functional as nnf
 from torchvision import transforms
-
+from torchvision.io import write_video
 import inspect
-from typing import Callable, List, Optional, Union
-
 from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 from diffusers import StableDiffusionPipeline
 from diffusers.configuration_utils import FrozenDict
@@ -182,8 +179,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
             )
             trajectory.append(latents.clone())
         if return_dict:
-            return {'trajectory': torch.stack(trajectory).cpu(),
-                'latents': latents}
+            return {'trajectory': torch.cat(trajectory), 'latents': latents}
         else:
             return latents
     
@@ -255,19 +251,30 @@ if __name__ == "__main__":
     reconstructed_latents = reconstruction_output_dict['latents']
     reconstruction_trajectory = reconstruction_output_dict['trajectory']
 
-    alternate_reconstruction_latents = pipe.backward_diffusion(
+    edit_recon_output_dict = pipe.backward_diffusion(
         latents=reversed_latents,
         text_embeddings=alternate_embeddings,
         guidance_scale=1,
         num_inference_steps=num_inference_steps,
+        return_dict=True
     )
+    edit_recon_latents = edit_recon_output_dict['latents']
+    edit_recon_trajectory = edit_recon_output_dict['trajectory']
 
     vae_recon = pipe.latents_to_imgs(image_latents)[0]
     ddim_recon = pipe.latents_to_imgs(reconstructed_latents)[0]
-    edited_img = pipe.latents_to_imgs(alternate_reconstruction_latents)[0]
+    edited_img = pipe.latents_to_imgs(edit_recon_latents)[0]
 
     vae_recon.save("out/inversion/vae_recon.png")
     ddim_recon.save("out/inversion/ddim_recon.png")
     edited_img.save("out/inversion/edited_img.png")
 
-    import ipdb;ipdb.set_trace(e
+    reconstruction_trajectory_rgb = 0.5 + 0.5*pipe.decode_image(reconstruction_trajectory).cpu()
+    edit_recon_trajectory_rgb = 0.5 + 0.5*pipe.decode_image(edit_recon_trajectory).cpu()
+    reconstruction_trajectory_rgb = reconstruction_trajectory_rgb.clip(0,1)
+    edit_recon_trajectory_rgb = edit_recon_trajectory_rgb.clip(0,1)
+
+    write_video("out/inversion/ddim_recon_trajectory.mp4",
+        255*reconstruction_trajectory_rgb.permute(0,2,3,1), fps=8)
+    write_video("out/inversion/edit_recon_trajectory.mp4",
+        255*edit_recon_trajectory_rgb.permute(0,2,3,1), fps=8)

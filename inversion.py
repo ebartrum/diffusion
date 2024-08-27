@@ -202,7 +202,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
 
             trajectory.append(pred_original_sample.clone())
             with torch.enable_grad():
-                updated_tweedie = pipe.apply_guidance(pred_original_sample.clone().squeeze(0),
+                updated_tweedie = self.apply_guidance(pred_original_sample.clone().squeeze(0),
                       guidance_img, guidance_mask, num_steps=5)
 
             #compute the prev sample from the tweedie

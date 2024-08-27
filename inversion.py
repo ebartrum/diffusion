@@ -90,7 +90,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         optimizer = torch.optim.Adam([param], lr=lr)
         for i in range(num_steps):
                 # Compute prediction and loss
-                rgb_pred = pipe.decode_image(param.unsqueeze(0))
+                rgb_pred = self.decode_image(param.unsqueeze(0))
                 loss = ((rgb_pred - target).abs()*guidance_mask).sum() / guidance_mask.sum()
                 # Backpropagation
                 loss.backward()

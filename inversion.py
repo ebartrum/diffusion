@@ -35,11 +35,6 @@ def load_img(path, target_size=512):
     image = tform(image)
     return 2.0 * image - 1.0
 
-def latents_to_imgs(latents):
-    x = pipe.decode_image(latents)
-    x = pipe.torch_to_numpy(x)
-    x = pipe.numpy_to_pil(x)
-    return x
 
 def backward_ddim(x_t, alpha_t: "alpha_t", alpha_tm1: "alpha_{t-1}", eps_xt):
     """ from noise to image"""
@@ -201,6 +196,13 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         image = image.cpu().permute(0, 2, 3, 1).numpy()
         return image
 
+    @torch.inference_mode()
+    def latents_to_imgs(self, latents):
+        x = self.decode_image(latents)
+        x = self.torch_to_numpy(x)
+        x = self.numpy_to_pil(x)
+        return x
+
 def get_inversion_pipe(
     model_id="stabilityai/stable-diffusion-2-1-base",
     model_dir="hf-models", device="cuda"):
@@ -221,40 +223,41 @@ def get_inversion_pipe(
         )
         return pipe
 
-pipe = get_inversion_pipe()
-impath = Path("data/target_context_frame.png").expanduser()
-prompt = "A photo of a man in a room"
-alternate_prompt = "A photo of a man smiling in a room with a big grin"
-text_embeddings = pipe.get_text_embedding(prompt)
-alternate_embeddings = pipe.get_text_embedding(alternate_prompt)
-img = load_img(impath).unsqueeze(0).to("cuda")
-image_latents = pipe.get_image_latents(img, rng_generator=torch.Generator(
-    device=pipe.device).manual_seed(0))
+if __name__ == "__main__":
+    pipe = get_inversion_pipe()
+    impath = Path("data/target_context_frame.png").expanduser()
+    prompt = "A photo of a man in a room"
+    alternate_prompt = "A photo of a man smiling in a room with a big grin"
+    text_embeddings = pipe.get_text_embedding(prompt)
+    alternate_embeddings = pipe.get_text_embedding(alternate_prompt)
+    img = load_img(impath).unsqueeze(0).to("cuda")
+    image_latents = pipe.get_image_latents(img, rng_generator=torch.Generator(
+        device=pipe.device).manual_seed(0))
 
-num_inference_steps = 50
-reversed_latents = pipe.forward_diffusion(
-    latents=image_latents,
-    text_embeddings=text_embeddings,
-    guidance_scale=1,
-    num_inference_steps=num_inference_steps,
-)
-reconstructed_latents = pipe.backward_diffusion(
-    latents=reversed_latents,
-    text_embeddings=text_embeddings,
-    guidance_scale=1,
-    num_inference_steps=num_inference_steps,
-)
-alternate_reconstruction_latents = pipe.backward_diffusion(
-    latents=reversed_latents,
-    text_embeddings=alternate_embeddings,
-    guidance_scale=1,
-    num_inference_steps=num_inference_steps,
-)
+    num_inference_steps = 50
+    reversed_latents = pipe.forward_diffusion(
+        latents=image_latents,
+        text_embeddings=text_embeddings,
+        guidance_scale=1,
+        num_inference_steps=num_inference_steps,
+    )
+    reconstructed_latents = pipe.backward_diffusion(
+        latents=reversed_latents,
+        text_embeddings=text_embeddings,
+        guidance_scale=1,
+        num_inference_steps=num_inference_steps,
+    )
+    alternate_reconstruction_latents = pipe.backward_diffusion(
+        latents=reversed_latents,
+        text_embeddings=alternate_embeddings,
+        guidance_scale=1,
+        num_inference_steps=num_inference_steps,
+    )
 
-vae_recon = latents_to_imgs(image_latents)[0]
-ddim_recon = latents_to_imgs(reconstructed_latents)[0]
-edited_img = latents_to_imgs(alternate_reconstruction_latents)[0]
+    vae_recon = pipe.latents_to_imgs(image_latents)[0]
+    ddim_recon = pipe.latents_to_imgs(reconstructed_latents)[0]
+    edited_img = pipe.latents_to_imgs(alternate_reconstruction_latents)[0]
 
-vae_recon.save("out/inversion/vae_recon.png")
-ddim_recon.save("out/inversion/ddim_recon.png")
-edited_img.save("out/inversion/edited_img.png")
+    vae_recon.save("out/inversion/vae_recon.png")
+    ddim_recon.save("out/inversion/ddim_recon.png")
+    edited_img.save("out/inversion/edited_img.png")

@@ -178,13 +178,11 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
                 ) / alpha_prod_t ** (0.5)
             trajectory.append(pred_original_sample.clone())
 
-            #compute reverse diffusion DDIM step
-            latents = backward_ddim(
-                x_t=latents,
-                alpha_t=alpha_prod_t,
-                alpha_tm1=alpha_prod_t_prev,
-                eps_xt=noise_pred,
-            )
+            #compute the prev sample from the tweedie
+            pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * noise_pred
+            prev_sample = alpha_prod_t_prev ** (0.5) * pred_original_sample + pred_sample_direction
+            latents = prev_sample
+
         if return_dict:
             return {'trajectory': torch.cat(trajectory), 'latents': latents}
         else:

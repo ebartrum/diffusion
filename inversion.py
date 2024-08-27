@@ -127,7 +127,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         else:
             prompt_to_prompt = False
 
-        trajectory = [latents.clone()]
+        trajectory = []
         for i, t in enumerate(self.progress_bar(timesteps_tensor if not reverse_process else reversed(timesteps_tensor))):
             if prompt_to_prompt:
                 if i < use_old_emb_i:
@@ -171,13 +171,20 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
             )
             if reverse_process:
                 alpha_prod_t, alpha_prod_t_prev = alpha_prod_t_prev, alpha_prod_t
+            
+            #estimate tweedie
+            beta_prod_t = 1 - alpha_prod_t
+            pred_original_sample = (latents - beta_prod_t ** (0.5) * noise_pred
+                ) / alpha_prod_t ** (0.5)
+            trajectory.append(pred_original_sample.clone())
+
+            #compute reverse diffusion DDIM step
             latents = backward_ddim(
                 x_t=latents,
                 alpha_t=alpha_prod_t,
                 alpha_tm1=alpha_prod_t_prev,
                 eps_xt=noise_pred,
             )
-            trajectory.append(latents.clone())
         if return_dict:
             return {'trajectory': torch.cat(trajectory), 'latents': latents}
         else:

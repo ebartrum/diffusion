@@ -308,19 +308,17 @@ if __name__ == "__main__":
     ddim_recon.save("out/inversion/ddim_recon.png")
     edited_img.save("out/inversion/edited_img.png")
 
-    # pipe.save_latent_videoframes(reconstruction_trajectory,
-    #     "out/inversion/ddim_recon_trajectory.mp4")
-    # pipe.save_latent_videoframes(edit_recon_trajectory,
-    #     "out/inversion/edit_recon_trajectory.mp4")
-
     test_tweedie = reconstruction_trajectory[25]
     guidance_path = "data/lifted_guidance_frame.png"
     guidance_img = 0.5*load_img(guidance_path).to("cuda") + 0.5
     guidance_mask_path = "data/lifted_guidance_frame_mask.png"
     guidance_mask = 0.5*load_img(guidance_mask_path).to("cuda") + 0.5
-    # updated_tweedie = pipe.update_tweedie(pipe, test_tweedie.clone(), guidance_img, guidance_mask)
-
 
     updated_tweedie = pipe.apply_guidance(test_tweedie, guidance_img, guidance_mask)
     updated_tweedie_rgb = pipe.decode_image(updated_tweedie.unsqueeze(0))
     save_image(0.5*updated_tweedie_rgb+0.5, "out/inversion/updated_tweedie_rgb.png")
+
+    pipe.save_latent_videoframes(reconstruction_trajectory,
+        "out/inversion/ddim_recon_trajectory.mp4")
+    pipe.save_latent_videoframes(edit_recon_trajectory,
+        "out/inversion/edit_recon_trajectory.mp4")

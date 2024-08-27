@@ -124,6 +124,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         callback_steps: Optional[int] = 1,
         reverse_process: True = False,
         return_dict: bool = False,
+        guide_tweedies: bool = False,
         **kwargs,
     ):
         """ Generate image from text prompt and latents
@@ -201,9 +202,12 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
                 ) / alpha_prod_t ** (0.5)
 
             trajectory.append(pred_original_sample.clone())
-            with torch.enable_grad():
-                updated_tweedie = self.apply_guidance(pred_original_sample.clone().squeeze(0),
-                      guidance_img, guidance_mask, num_steps=5)
+
+            if guide_tweedies:
+                with torch.enable_grad():
+                    updated_tweedie = self.apply_guidance(pred_original_sample.clone().squeeze(0),
+                          guidance_img, guidance_mask, num_steps=5)
+                pred_original_sample = updated_tweedie
 
             #compute the prev sample from the tweedie
             pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * noise_pred

@@ -110,7 +110,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         latents = encoding * 0.18215
         return latents
 
-    @torch.inference_mode()
+    @torch.no_grad()
     def backward_diffusion(
         self,
         use_old_emb_i=25,
@@ -145,6 +145,11 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         else:
             prompt_to_prompt = False
 
+        
+        guidance_path = "data/lifted_guidance_frame.png"
+        guidance_img = 0.5*load_img(guidance_path).to("cuda") + 0.5
+        guidance_mask_path = "data/lifted_guidance_frame_mask.png"
+        guidance_mask = 0.5*load_img(guidance_mask_path).to("cuda") + 0.5
         trajectory = []
         for i, t in enumerate(self.progress_bar(timesteps_tensor if not reverse_process else reversed(timesteps_tensor))):
             if prompt_to_prompt:
@@ -194,7 +199,11 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
             beta_prod_t = 1 - alpha_prod_t
             pred_original_sample = (latents - beta_prod_t ** (0.5) * noise_pred
                 ) / alpha_prod_t ** (0.5)
+
             trajectory.append(pred_original_sample.clone())
+            with torch.enable_grad():
+                updated_tweedie = pipe.apply_guidance(pred_original_sample.clone().squeeze(0),
+                      guidance_img, guidance_mask, num_steps=5)
 
             #compute the prev sample from the tweedie
             pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * noise_pred
@@ -234,15 +243,6 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         rgb_frames = rgb_frames.clip(0,1)
         rgb_frames = rgb_frames.permute(0,2,3,1)*255
         write_video(filepath, rgb_frames, fps=fps)
-
-    @torch.inference_mode()
-    def update_tweedie(self, tweedie, guidance, guidance_mask):
-        import ipdb; ipdb.set_trace()
-        return tweedie
-        # rgb_frames = 0.5 + 0.5*self.decode_image(latent_frames).cpu()
-        # rgb_frames = rgb_frames.clip(0,1)
-        # rgb_frames = rgb_frames.permute(0,2,3,1)*255
-        # write_video(filepath, rgb_frames, fps=fps)
 
 def get_inversion_pipe(
     model_id="stabilityai/stable-diffusion-2-1-base",

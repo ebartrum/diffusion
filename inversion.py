@@ -13,7 +13,7 @@ import inspect
 from typing import Callable, List, Optional, Union
 
 from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
-from diffusers import DDIMScheduler, StableDiffusionPipeline
+from diffusers import StableDiffusionPipeline
 from diffusers.configuration_utils import FrozenDict
 from diffusers.models import AutoencoderKL, UNet2DConditionModel
 from diffusers import DiffusionPipeline
@@ -206,10 +206,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
 def get_inversion_pipe(
     model_id="stabilityai/stable-diffusion-2-1-base",
     model_dir="hf-models", device="cuda"):
-        ddim = DDIMScheduler.from_pretrained(
-               model_id, subfolder="scheduler",
-               cache_dir=model_dir)
-        original_pipe = StableDiffusionPipeline.from_pretrained(model_id,schedule=ddim,
+        original_pipe = StableDiffusionPipeline.from_pretrained(model_id,
             cache_dir=model_dir).to(device)
         # run this when you modify the code
         pipe = InversionStableDiffusionPipeline(

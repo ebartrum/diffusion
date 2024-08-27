@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as nnf
 from torchvision import transforms
 from torchvision.io import write_video
+from torchvision.utils import save_image
 import inspect
 from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 from diffusers import StableDiffusionPipeline
@@ -188,7 +189,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         else:
             return latents
     
-    @torch.inference_mode()
+    @torch.enable_grad()
     def decode_image(self, latents: torch.FloatTensor, **kwargs) -> List["PIL_IMAGE"]:
         scaled_latents = 1 / 0.18215 * latents
         image = [
@@ -216,6 +217,15 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         rgb_frames = rgb_frames.clip(0,1)
         rgb_frames = rgb_frames.permute(0,2,3,1)*255
         write_video(filepath, rgb_frames, fps=fps)
+
+    @torch.inference_mode()
+    def update_tweedie(self, tweedie, guidance, guidance_mask):
+        import ipdb; ipdb.set_trace()
+        return tweedie
+        # rgb_frames = 0.5 + 0.5*self.decode_image(latent_frames).cpu()
+        # rgb_frames = rgb_frames.clip(0,1)
+        # rgb_frames = rgb_frames.permute(0,2,3,1)*255
+        # write_video(filepath, rgb_frames, fps=fps)
 
 def get_inversion_pipe(
     model_id="stabilityai/stable-diffusion-2-1-base",
@@ -281,7 +291,37 @@ if __name__ == "__main__":
     ddim_recon.save("out/inversion/ddim_recon.png")
     edited_img.save("out/inversion/edited_img.png")
 
-    pipe.save_latent_videoframes(reconstruction_trajectory,
-        "out/inversion/ddim_recon_trajectory.mp4")
-    pipe.save_latent_videoframes(edit_recon_trajectory,
-        "out/inversion/edit_recon_trajectory.mp4")
+    # pipe.save_latent_videoframes(reconstruction_trajectory,
+    #     "out/inversion/ddim_recon_trajectory.mp4")
+    # pipe.save_latent_videoframes(edit_recon_trajectory,
+    #     "out/inversion/edit_recon_trajectory.mp4")
+
+    test_tweedie = reconstruction_trajectory[25]
+    guidance_path = "data/lifted_guidance_frame.png"
+    guidance_img = 0.5*load_img(guidance_path).to("cuda") + 0.5
+    guidance_mask_path = "data/lifted_guidance_frame_mask.png"
+    guidance_mask = 0.5*load_img(guidance_mask_path).to("cuda") + 0.5
+    # updated_tweedie = pipe.update_tweedie(pipe, test_tweedie.clone(), guidance_img, guidance_mask)
+
+    num_optimisation_steps = 50
+    lr = 1e-2
+
+    with torch.enable_grad():
+        param = torch.tensor(test_tweedie, requires_grad=True)
+        target = guidance_img.detach()*2 - 1
+        optimizer = torch.optim.Adam([param], lr=1e-2)
+        for i in range(50):
+                # Compute prediction and loss
+                rgb_pred = pipe.decode_image(param.unsqueeze(0))
+                loss = ((rgb_pred - target).abs()*guidance_mask).sum() / guidance_mask.sum()
+                # Backpropagation
+                loss.backward()
+                print(loss)
+                optimizer.step()
+                optimizer.zero_grad()
+
+    updated_tweedie = param.detach().clone()
+    updated_tweedie_rgb = pipe.decode_image(updated_tweedie.unsqueeze(0))
+    save_image(0.5*updated_tweedie_rgb+0.5, "out/inversion/updated_tweedie_rgb.png")
+
+    import ipdb;ipdb.set_trace()

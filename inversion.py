@@ -323,5 +323,3 @@ if __name__ == "__main__":
     updated_tweedie = param.detach().clone()
     updated_tweedie_rgb = pipe.decode_image(updated_tweedie.unsqueeze(0))
     save_image(0.5*updated_tweedie_rgb+0.5, "out/inversion/updated_tweedie_rgb.png")
-
-    import ipdb;ipdb.set_trace()

@@ -273,8 +273,9 @@ def get_inversion_pipe(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--guidance_lr', type=float, default=1e-2)
+    parser.add_argument('--num_inference_steps', type=int, default=50)
     args = parser.parse_args()
-    output_dir = f"out/inversion_{args.guidance_lr}"
+    output_dir = f"out/inversion_{args.guidance_lr}_{args.num_inference_steps}_steps"
     os.makedirs(output_dir, exist_ok=True)
 
     pipe = get_inversion_pipe(guidance_args=args)
@@ -286,19 +287,18 @@ if __name__ == "__main__":
     image_latents = pipe.get_image_latents(img, rng_generator=torch.Generator(
         device=pipe.device).manual_seed(0))
 
-    num_inference_steps = 50
     reversed_latents = pipe.forward_diffusion(
         latents=image_latents,
         text_embeddings=text_embeddings,
         guidance_scale=1,
-        num_inference_steps=num_inference_steps,
+        num_inference_steps=args.num_inference_steps,
     )
 
     reconstruction_output_dict = pipe.backward_diffusion(
         latents=reversed_latents,
         text_embeddings=text_embeddings,
         guidance_scale=1,
-        num_inference_steps=num_inference_steps,
+        num_inference_steps=args.num_inference_steps,
         return_dict=True
     )
     reconstructed_latents = reconstruction_output_dict['latents']
@@ -308,7 +308,7 @@ if __name__ == "__main__":
         latents=reversed_latents,
         text_embeddings=text_embeddings,
         guidance_scale=1,
-        num_inference_steps=num_inference_steps,
+        num_inference_steps=args.num_inference_steps,
         return_dict=True,
         guide_tweedies=True
     )

@@ -201,25 +201,27 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         image = image.cpu().permute(0, 2, 3, 1).numpy()
         return image
 
-model_id = "stabilityai/stable-diffusion-2-1-base"
-model_dir = "hf-models"
-device = "cuda"
-ddim = DDIMScheduler.from_pretrained(
-       model_id, subfolder="scheduler",
-       cache_dir=model_dir)
-original_pipe = StableDiffusionPipeline.from_pretrained(model_id,schedule=ddim,
-    cache_dir=model_dir).to(device)
-# run this when you modify the code
-pipe = InversionStableDiffusionPipeline(
-    vae=original_pipe.vae,
-    text_encoder=original_pipe.text_encoder,
-    tokenizer=original_pipe.tokenizer,
-    unet=original_pipe.unet,
-    scheduler=original_pipe.scheduler,
-    safety_checker=original_pipe.safety_checker,
-    feature_extractor=original_pipe.feature_extractor,
-)
+def get_inversion_pipe(
+    model_id="stabilityai/stable-diffusion-2-1-base",
+    model_dir="hf-models", device="cuda"):
+        ddim = DDIMScheduler.from_pretrained(
+               model_id, subfolder="scheduler",
+               cache_dir=model_dir)
+        original_pipe = StableDiffusionPipeline.from_pretrained(model_id,schedule=ddim,
+            cache_dir=model_dir).to(device)
+        # run this when you modify the code
+        pipe = InversionStableDiffusionPipeline(
+            vae=original_pipe.vae,
+            text_encoder=original_pipe.text_encoder,
+            tokenizer=original_pipe.tokenizer,
+            unet=original_pipe.unet,
+            scheduler=original_pipe.scheduler,
+            safety_checker=original_pipe.safety_checker,
+            feature_extractor=original_pipe.feature_extractor,
+        )
+        return pipe
 
+pipe = get_inversion_pipe()
 impath = Path("data/target_context_frame.png").expanduser()
 prompt = "A photo of a man in a room"
 alternate_prompt = "A photo of a man smiling in a room with a big grin"

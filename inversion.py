@@ -210,6 +210,13 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         x = self.numpy_to_pil(x)
         return x
 
+    @torch.inference_mode()
+    def save_latent_videoframes(self, latent_frames, filepath, fps=8):
+        rgb_frames = 0.5 + 0.5*self.decode_image(latent_frames).cpu()
+        rgb_frames = rgb_frames.clip(0,1)
+        rgb_frames = rgb_frames.permute(0,2,3,1)*255
+        write_video(filepath, rgb_frames, fps=fps)
+
 def get_inversion_pipe(
     model_id="stabilityai/stable-diffusion-2-1-base",
     model_dir="hf-models", device="cuda"):
@@ -274,12 +281,7 @@ if __name__ == "__main__":
     ddim_recon.save("out/inversion/ddim_recon.png")
     edited_img.save("out/inversion/edited_img.png")
 
-    reconstruction_trajectory_rgb = 0.5 + 0.5*pipe.decode_image(reconstruction_trajectory).cpu()
-    edit_recon_trajectory_rgb = 0.5 + 0.5*pipe.decode_image(edit_recon_trajectory).cpu()
-    reconstruction_trajectory_rgb = reconstruction_trajectory_rgb.clip(0,1)
-    edit_recon_trajectory_rgb = edit_recon_trajectory_rgb.clip(0,1)
-
-    write_video("out/inversion/ddim_recon_trajectory.mp4",
-        255*reconstruction_trajectory_rgb.permute(0,2,3,1), fps=8)
-    write_video("out/inversion/edit_recon_trajectory.mp4",
-        255*edit_recon_trajectory_rgb.permute(0,2,3,1), fps=8)
+    pipe.save_latent_videoframes(reconstruction_trajectory,
+        "out/inversion/ddim_recon_trajectory.mp4")
+    pipe.save_latent_videoframes(edit_recon_trajectory,
+        "out/inversion/edit_recon_trajectory.mp4")

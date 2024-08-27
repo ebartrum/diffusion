@@ -108,6 +108,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         callback: Optional[Callable[[int, int, torch.FloatTensor], None]] = None,
         callback_steps: Optional[int] = 1,
         reverse_process: True = False,
+        return_dict: bool = False,
         **kwargs,
     ):
         """ Generate image from text prompt and latents
@@ -129,6 +130,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         else:
             prompt_to_prompt = False
 
+        trajectory = [latents.clone()]
         for i, t in enumerate(self.progress_bar(timesteps_tensor if not reverse_process else reversed(timesteps_tensor))):
             if prompt_to_prompt:
                 if i < use_old_emb_i:
@@ -178,8 +180,12 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
                 alpha_tm1=alpha_prod_t_prev,
                 eps_xt=noise_pred,
             )
-        return latents
-
+            trajectory.append(latents.clone())
+        if return_dict:
+            return {'trajectory': torch.stack(trajectory).cpu(),
+                'latents': latents}
+        else:
+            return latents
     
     @torch.inference_mode()
     def decode_image(self, latents: torch.FloatTensor, **kwargs) -> List["PIL_IMAGE"]:
@@ -238,12 +244,17 @@ if __name__ == "__main__":
         guidance_scale=1,
         num_inference_steps=num_inference_steps,
     )
-    reconstructed_latents = pipe.backward_diffusion(
+
+    reconstruction_output_dict = pipe.backward_diffusion(
         latents=reversed_latents,
         text_embeddings=text_embeddings,
         guidance_scale=1,
         num_inference_steps=num_inference_steps,
+        return_dict=True
     )
+    reconstructed_latents = reconstruction_output_dict['latents']
+    reconstruction_trajectory = reconstruction_output_dict['trajectory']
+
     alternate_reconstruction_latents = pipe.backward_diffusion(
         latents=reversed_latents,
         text_embeddings=alternate_embeddings,
@@ -258,3 +269,5 @@ if __name__ == "__main__":
     vae_recon.save("out/inversion/vae_recon.png")
     ddim_recon.save("out/inversion/ddim_recon.png")
     edited_img.save("out/inversion/edited_img.png")
+
+    import ipdb;ipdb.set_trace(e

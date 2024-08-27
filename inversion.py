@@ -303,14 +303,12 @@ if __name__ == "__main__":
     guidance_mask = 0.5*load_img(guidance_mask_path).to("cuda") + 0.5
     # updated_tweedie = pipe.update_tweedie(pipe, test_tweedie.clone(), guidance_img, guidance_mask)
 
-    num_optimisation_steps = 50
-    lr = 1e-2
-
-    with torch.enable_grad():
-        param = torch.tensor(test_tweedie, requires_grad=True)
+    @torch.enable_grad()
+    def apply_guidance(tweedie, guidance_img, guidance_mask, num_steps=50, lr=1e-2):
+        param = tweedie.clone().detach().requires_grad_(True)
         target = guidance_img.detach()*2 - 1
-        optimizer = torch.optim.Adam([param], lr=1e-2)
-        for i in range(50):
+        optimizer = torch.optim.Adam([param], lr=lr)
+        for i in range(num_steps):
                 # Compute prediction and loss
                 rgb_pred = pipe.decode_image(param.unsqueeze(0))
                 loss = ((rgb_pred - target).abs()*guidance_mask).sum() / guidance_mask.sum()
@@ -320,6 +318,8 @@ if __name__ == "__main__":
                 optimizer.step()
                 optimizer.zero_grad()
 
-    updated_tweedie = param.detach().clone()
+        return param.detach().clone()
+
+    updated_tweedie = apply_guidance(test_tweedie, guidance_img, guidance_mask)
     updated_tweedie_rgb = pipe.decode_image(updated_tweedie.unsqueeze(0))
     save_image(0.5*updated_tweedie_rgb+0.5, "out/inversion/updated_tweedie_rgb.png")

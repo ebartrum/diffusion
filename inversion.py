@@ -1,6 +1,8 @@
 from functools import partial
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
+import argparse
+import os
 import numpy as np
 import PIL
 from PIL import Image
@@ -59,6 +61,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         scheduler: Union[DDIMScheduler, PNDMScheduler, LMSDiscreteScheduler],
         safety_checker: StableDiffusionSafetyChecker = None,
         feature_extractor: CLIPFeatureExtractor = None,
+        guidance_args = None,
     ):
         super().__init__(vae,text_encoder,tokenizer, unet, scheduler, safety_checker, feature_extractor)
 
@@ -70,6 +73,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
             scheduler=scheduler
         )
         self.forward_diffusion = partial(self.backward_diffusion, reverse_process=True)
+        self.guidance_args = guidance_args
     
     @torch.inference_mode()
     def get_text_embedding(self, prompt):
@@ -84,10 +88,10 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         return text_embeddings
 
     @torch.enable_grad()
-    def apply_guidance(self, tweedie, guidance_img, guidance_mask, num_steps=50, lr=1e-2):
+    def apply_guidance(self, tweedie, guidance_img, guidance_mask, num_steps=50):
         param = tweedie.clone().detach().requires_grad_(True)
         target = guidance_img.detach()*2 - 1
-        optimizer = torch.optim.Adam([param], lr=lr)
+        optimizer = torch.optim.Adam([param], lr=self.guidance_args.guidance_lr)
         for i in range(num_steps):
                 # Compute prediction and loss
                 rgb_pred = self.decode_image(param.unsqueeze(0))
@@ -250,7 +254,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
 
 def get_inversion_pipe(
     model_id="stabilityai/stable-diffusion-2-1-base",
-    model_dir="hf-models", device="cuda"):
+    model_dir="hf-models", device="cuda", guidance_args=None):
         original_pipe = StableDiffusionPipeline.from_pretrained(model_id,
             cache_dir=model_dir).to(device)
         # run this when you modify the code
@@ -262,16 +266,22 @@ def get_inversion_pipe(
             scheduler=original_pipe.scheduler,
             safety_checker=original_pipe.safety_checker,
             feature_extractor=original_pipe.feature_extractor,
+            guidance_args=guidance_args
         )
         return pipe
 
 if __name__ == "__main__":
-    pipe = get_inversion_pipe()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--guidance_lr', type=float, default=1e-2)
+    args = parser.parse_args()
+    output_dir = f"out/inversion_{args.guidance_lr}"
+    os.makedirs(output_dir, exist_ok=True)
+
+    pipe = get_inversion_pipe(guidance_args=args)
     impath = Path("data/target_context_frame.png").expanduser()
     prompt = "A photo of a man in a room"
-    alternate_prompt = "A photo of a man smiling in a room with a big grin"
     text_embeddings = pipe.get_text_embedding(prompt)
-    alternate_embeddings = pipe.get_text_embedding(alternate_prompt)
+
     img = load_img(impath).unsqueeze(0).to("cuda")
     image_latents = pipe.get_image_latents(img, rng_generator=torch.Generator(
         device=pipe.device).manual_seed(0))
@@ -296,10 +306,11 @@ if __name__ == "__main__":
 
     edit_recon_output_dict = pipe.backward_diffusion(
         latents=reversed_latents,
-        text_embeddings=alternate_embeddings,
+        text_embeddings=text_embeddings,
         guidance_scale=1,
         num_inference_steps=num_inference_steps,
-        return_dict=True
+        return_dict=True,
+        guide_tweedies=True
     )
     edit_recon_latents = edit_recon_output_dict['latents']
     edit_recon_trajectory = edit_recon_output_dict['trajectory']
@@ -308,9 +319,9 @@ if __name__ == "__main__":
     ddim_recon = pipe.latents_to_imgs(reconstructed_latents)[0]
     edited_img = pipe.latents_to_imgs(edit_recon_latents)[0]
 
-    vae_recon.save("out/inversion/vae_recon.png")
-    ddim_recon.save("out/inversion/ddim_recon.png")
-    edited_img.save("out/inversion/edited_img.png")
+    vae_recon.save(f"{output_dir}/vae_recon.png")
+    ddim_recon.save(f"{output_dir}/ddim_recon.png")
+    edited_img.save(f"{output_dir}/edited_img.png")
 
     test_tweedie = reconstruction_trajectory[25]
     guidance_path = "data/lifted_guidance_frame.png"
@@ -320,9 +331,9 @@ if __name__ == "__main__":
 
     updated_tweedie = pipe.apply_guidance(test_tweedie, guidance_img, guidance_mask)
     updated_tweedie_rgb = pipe.decode_image(updated_tweedie.unsqueeze(0))
-    save_image(0.5*updated_tweedie_rgb+0.5, "out/inversion/updated_tweedie_rgb.png")
+    save_image(0.5*updated_tweedie_rgb+0.5, f"{output_dir}/updated_tweedie_rgb.png")
 
     pipe.save_latent_videoframes(reconstruction_trajectory,
-        "out/inversion/ddim_recon_trajectory.mp4")
+        f"{output_dir}/ddim_recon_trajectory.mp4")
     pipe.save_latent_videoframes(edit_recon_trajectory,
-        "out/inversion/edit_recon_trajectory.mp4")
+        f"{output_dir}/edit_recon_trajectory.mp4")

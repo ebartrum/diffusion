@@ -1,3 +1,4 @@
+import glob
 from functools import partial
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -277,8 +278,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_guidance_steps', type=int, default=5)
     args = parser.parse_args()
 
-    frame_id = str(args.frame_id).zfill(2)
-    output_dir = f"out/inversion_{args.guidance_lr}_{args.num_inference_steps}_steps_frame_id_{frame_id}"
+    output_dir = f"out/inversion_{args.guidance_lr}_{args.num_inference_steps}_steps_frame_id_{str(args.frame_id).zfill(2)}"
     os.makedirs(output_dir, exist_ok=True)
 
     pipe = get_inversion_pipe(guidance_args=args)
@@ -297,10 +297,11 @@ if __name__ == "__main__":
         num_inference_steps=args.num_inference_steps,
     )
 
-    guidance_path = f"data/warped_marigold_frames/frame_{frame_id}.png"
-    guidance_img = load_img(guidance_path).to("cuda")
-    guidance_mask_path = f"data/warped_marigold_mask_frames/frame_{frame_id}.png"
-    guidance_mask = 0.5*load_img(guidance_mask_path).to("cuda") + 0.5
+    guidance_frame_paths = sorted(glob.glob("data/warped_marigold_frames/*.png"))
+    guidance_mask_paths = [p.replace("marigold_frames","marigold_mask_frames")\
+            for p in guidance_frame_paths]
+    guidance_frames = torch.stack([load_img(gp).to("cuda") for gp in guidance_frame_paths])
+    guidance_masks = 0.5*torch.stack([load_img(gp).to("cuda") for gp in guidance_frame_paths]) + 0.5
 
     edit_recon_output_dict = pipe.backward_diffusion(
         latents=reversed_context_latents,
@@ -309,8 +310,8 @@ if __name__ == "__main__":
         num_inference_steps=args.num_inference_steps,
         return_dict=True,
         guide_tweedies=True,
-        guidance_img=guidance_img,
-        guidance_mask=guidance_mask
+        guidance_img=guidance_frames[args.frame_id],
+        guidance_mask=guidance_masks[args.frame_id]
     )
     edit_recon_latents = edit_recon_output_dict['latents']
     edit_recon_trajectory = edit_recon_output_dict['trajectory']

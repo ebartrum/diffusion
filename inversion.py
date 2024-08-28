@@ -273,7 +273,9 @@ if __name__ == "__main__":
     parser.add_argument('--num_inference_steps', type=int, default=50)
     parser.add_argument('--frame_id', type=int, default=0)
     args = parser.parse_args()
-    output_dir = f"out/inversion_{args.guidance_lr}_{args.num_inference_steps}_steps"
+
+    frame_id = str(args.frame_id).zfill(2)
+    output_dir = f"out/inversion_{args.guidance_lr}_{args.num_inference_steps}_steps_frame_id_{frame_id}"
     os.makedirs(output_dir, exist_ok=True)
 
     pipe = get_inversion_pipe(guidance_args=args)
@@ -303,7 +305,6 @@ if __name__ == "__main__":
     # reconstructed_latents = reconstruction_output_dict['latents']
     # reconstruction_trajectory = reconstruction_output_dict['trajectory']
 
-    frame_id = str(args.frame_id).zfill(2)
     guidance_path = f"data/warped_marigold_frames/frame_{frame_id}.png"
     guidance_img = 0.5*load_img(guidance_path).to("cuda") + 0.5
     guidance_mask_path = f"data/warped_marigold_mask_frames/frame_{frame_id}.png"

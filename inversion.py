@@ -285,12 +285,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--guidance_lr', type=float, default=1e-2)
     parser.add_argument('--num_inference_steps', type=int, default=50)
-    parser.add_argument('--frame_id', type=int, default=0)
+    parser.add_argument('--frame_id', type=int, default=[0], nargs='+')
     parser.add_argument('--num_guidance_steps', type=int, default=5)
     args = parser.parse_args()
 
-    output_dir = f"out/inversion_{args.guidance_lr}_{args.num_inference_steps}_steps_frame_id_{str(args.frame_id).zfill(2)}"
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir = f"out/inversion_{args.guidance_lr}_{args.num_inference_steps}_steps"
+    os.makedirs(os.path.join(output_dir, "edit_trajectories"), exist_ok=True)
+    os.makedirs(os.path.join(output_dir, "edited_frames"), exist_ok=True)
 
     pipe = get_inversion_pipe(guidance_args=args)
     context_img_path = Path("data/target_context_frame.png").expanduser()
@@ -313,7 +314,7 @@ if __name__ == "__main__":
             for p in guidance_frame_paths]
     guidance_frames = torch.stack([load_img(gp).to("cuda") for gp in guidance_frame_paths])
     guidance_masks = 0.5*torch.stack([load_img(gp).to("cuda") for gp in guidance_frame_paths]) + 0.5
-    guidance_frame_indices = [args.frame_id]
+    guidance_frame_indices = args.frame_id
 
     edit_recon_output_dict = pipe.backward_diffusion(
         latents=reversed_context_latents,
@@ -329,9 +330,18 @@ if __name__ == "__main__":
 
     edit_recon_latents = edit_recon_output_dict['latents_dict']
     edit_recon_trajectory = edit_recon_output_dict['trajectory_dict']
+    edited_frames = {}
+    latent_video_out = []
 
     for frame_id in guidance_frame_indices:
-        edited_img = pipe.latents_to_imgs(edit_recon_latents[frame_id])[0]
-        edited_img.save(f"{output_dir}/edited_img_frame_{str(frame_id).zfill(2)}.png")
+        edited_frame = pipe.latents_to_imgs(edit_recon_latents[frame_id])[0]
+        edited_frame.save(f"{output_dir}/edited_frames/{str(frame_id).zfill(2)}.png")
+        latent_video_out.append(edit_recon_latents[frame_id])
         pipe.save_latent_videoframes(edit_recon_trajectory[frame_id],
-            f"{output_dir}/edit_recon_trajectory_frame_{str(frame_id).zfill(2)}.mp4")
+            f"{output_dir}/edit_trajectories/{str(frame_id).zfill(2)}.mp4")
+
+    if len(latent_video_out) > 1:
+        pipe.save_latent_videoframes(torch.cat(latent_video_out), f"{output_dir}/out.mp4")
+    else:
+        out = pipe.latents_to_imgs(latent_video_out[0])[0]
+        out.save(f"{output_dir}/out.png")

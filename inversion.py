@@ -98,11 +98,10 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
                 loss = ((rgb_pred - target).abs()*guidance_mask).sum() / guidance_mask.sum()
                 # Backpropagation
                 loss.backward()
-                print(loss)
                 optimizer.step()
                 optimizer.zero_grad()
 
-        return param.detach().clone()
+        return param.detach().clone(), loss.detach()
     
     @torch.inference_mode()
     def get_image_latents(self, image, sample=True, rng_generator=None):
@@ -153,7 +152,8 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
             prompt_to_prompt = False
         
         trajectory = []
-        for i, t in enumerate(self.progress_bar(timesteps_tensor if not reverse_process else reversed(timesteps_tensor))):
+        pbar = self.progress_bar(timesteps_tensor if not reverse_process else reversed(timesteps_tensor))
+        for i, t in enumerate(pbar):
             if prompt_to_prompt:
                 if i < use_old_emb_i:
                     text_embeddings = old_text_embeddings
@@ -206,10 +206,11 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
 
             if guide_tweedies:
                 with torch.enable_grad():
-                    updated_tweedie = self.apply_guidance(pred_original_sample.clone().squeeze(0),
+                    updated_tweedie, guidance_loss = self.apply_guidance(pred_original_sample.clone().squeeze(0),
                           guidance_img, guidance_mask,
                           num_steps=self.guidance_args.num_guidance_steps)
                 pred_original_sample = updated_tweedie
+                pbar.set_description(f"Guidance Loss {guidance_loss.item():,.4f}")
 
             #compute the prev sample from the tweedie
             pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * noise_pred

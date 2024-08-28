@@ -129,6 +129,8 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         reverse_process: True = False,
         return_dict: bool = False,
         guide_tweedies: bool = False,
+        guidance_img: torch.FloatTensor = None,
+        guidance_mask: torch.FloatTensor = None,
         **kwargs,
     ):
         """ Generate image from text prompt and latents
@@ -149,12 +151,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
             prompt_to_prompt = True
         else:
             prompt_to_prompt = False
-
         
-        guidance_path = "data/lifted_guidance_frame.png"
-        guidance_img = 0.5*load_img(guidance_path).to("cuda") + 0.5
-        guidance_mask_path = "data/lifted_guidance_frame_mask.png"
-        guidance_mask = 0.5*load_img(guidance_mask_path).to("cuda") + 0.5
         trajectory = []
         for i, t in enumerate(self.progress_bar(timesteps_tensor if not reverse_process else reversed(timesteps_tensor))):
             if prompt_to_prompt:
@@ -279,48 +276,56 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
 
     pipe = get_inversion_pipe(guidance_args=args)
-    impath = Path("data/target_context_frame.png").expanduser()
+    context_img_path = Path("data/target_context_frame.png").expanduser()
     prompt = "A photo of a man in a room"
     text_embeddings = pipe.get_text_embedding(prompt)
 
-    img = load_img(impath).unsqueeze(0).to("cuda")
-    image_latents = pipe.get_image_latents(img, rng_generator=torch.Generator(
+    context_img = load_img(context_img_path).unsqueeze(0).to("cuda")
+    context_latents = pipe.get_image_latents(context_img, rng_generator=torch.Generator(
         device=pipe.device).manual_seed(0))
 
-    reversed_latents = pipe.forward_diffusion(
-        latents=image_latents,
+
+    reversed_context_latents = pipe.forward_diffusion(
+        latents=context_latents,
         text_embeddings=text_embeddings,
         guidance_scale=1,
         num_inference_steps=args.num_inference_steps,
     )
 
-    reconstruction_output_dict = pipe.backward_diffusion(
-        latents=reversed_latents,
-        text_embeddings=text_embeddings,
-        guidance_scale=1,
-        num_inference_steps=args.num_inference_steps,
-        return_dict=True
-    )
-    reconstructed_latents = reconstruction_output_dict['latents']
-    reconstruction_trajectory = reconstruction_output_dict['trajectory']
+    # reconstruction_output_dict = pipe.backward_diffusion(
+    #     latents=reversed_latents,
+    #     text_embeddings=text_embeddings,
+    #     guidance_scale=1,
+    #     num_inference_steps=args.num_inference_steps,
+    #     return_dict=True
+    # )
+    # reconstructed_latents = reconstruction_output_dict['latents']
+    # reconstruction_trajectory = reconstruction_output_dict['trajectory']
+
+    guidance_path = "data/lifted_guidance_frame.png"
+    guidance_img = 0.5*load_img(guidance_path).to("cuda") + 0.5
+    guidance_mask_path = "data/lifted_guidance_frame_mask.png"
+    guidance_mask = 0.5*load_img(guidance_mask_path).to("cuda") + 0.5
 
     edit_recon_output_dict = pipe.backward_diffusion(
-        latents=reversed_latents,
+        latents=reversed_context_latents,
         text_embeddings=text_embeddings,
         guidance_scale=1,
         num_inference_steps=args.num_inference_steps,
         return_dict=True,
-        guide_tweedies=True
+        guide_tweedies=True,
+        guidance_img=guidance_img,
+        guidance_mask=guidance_mask
     )
     edit_recon_latents = edit_recon_output_dict['latents']
     edit_recon_trajectory = edit_recon_output_dict['trajectory']
 
-    vae_recon = pipe.latents_to_imgs(image_latents)[0]
-    ddim_recon = pipe.latents_to_imgs(reconstructed_latents)[0]
+    # vae_recon = pipe.latents_to_imgs(image_latents)[0]
+    # ddim_recon = pipe.latents_to_imgs(reconstructed_latents)[0]
     edited_img = pipe.latents_to_imgs(edit_recon_latents)[0]
 
-    vae_recon.save(f"{output_dir}/vae_recon.png")
-    ddim_recon.save(f"{output_dir}/ddim_recon.png")
+    # vae_recon.save(f"{output_dir}/vae_recon.png")
+    # ddim_recon.save(f"{output_dir}/ddim_recon.png")
     edited_img.save(f"{output_dir}/edited_img.png")
 
     # test_tweedie = reconstruction_trajectory[25]
@@ -333,7 +338,7 @@ if __name__ == "__main__":
     # updated_tweedie_rgb = pipe.decode_image(updated_tweedie.unsqueeze(0))
     # save_image(0.5*updated_tweedie_rgb+0.5, f"{output_dir}/updated_tweedie_rgb.png")
 
-    pipe.save_latent_videoframes(reconstruction_trajectory,
-        f"{output_dir}/ddim_recon_trajectory.mp4")
+    # pipe.save_latent_videoframes(reconstruction_trajectory,
+    #     f"{output_dir}/ddim_recon_trajectory.mp4")
     pipe.save_latent_videoframes(edit_recon_trajectory,
         f"{output_dir}/edit_recon_trajectory.mp4")

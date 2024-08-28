@@ -88,7 +88,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         return text_embeddings
 
     @torch.enable_grad()
-    def apply_guidance(self, tweedie, guidance_img, guidance_mask, num_steps=50):
+    def apply_guidance(self, tweedie, guidance_img, guidance_mask, num_steps=5):
         param = tweedie.clone().detach().requires_grad_(True)
         target = guidance_img.detach()*2 - 1
         optimizer = torch.optim.Adam([param], lr=self.guidance_args.guidance_lr)
@@ -207,7 +207,8 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
             if guide_tweedies:
                 with torch.enable_grad():
                     updated_tweedie = self.apply_guidance(pred_original_sample.clone().squeeze(0),
-                          guidance_img, guidance_mask, num_steps=5)
+                          guidance_img, guidance_mask,
+                          num_steps=self.guidance_args.num_guidance_steps)
                 pred_original_sample = updated_tweedie
 
             #compute the prev sample from the tweedie
@@ -272,6 +273,7 @@ if __name__ == "__main__":
     parser.add_argument('--guidance_lr', type=float, default=1e-2)
     parser.add_argument('--num_inference_steps', type=int, default=50)
     parser.add_argument('--frame_id', type=int, default=0)
+    parser.add_argument('--num_guidance_steps', type=int, default=5)
     args = parser.parse_args()
 
     frame_id = str(args.frame_id).zfill(2)

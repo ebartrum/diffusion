@@ -7,3 +7,4 @@ conf/prompts
 work_dir
 *.ipynb
 .ipynb_checkpoints
+expts.sh

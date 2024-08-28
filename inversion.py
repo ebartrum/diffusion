@@ -90,7 +90,7 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
     @torch.enable_grad()
     def apply_guidance(self, tweedie, guidance_img, guidance_mask, num_steps=5):
         param = tweedie.clone().detach().requires_grad_(True)
-        target = guidance_img.detach()*2 - 1
+        target = guidance_img.detach()
         optimizer = torch.optim.Adam([param], lr=self.guidance_args.guidance_lr)
         for i in range(num_steps):
                 # Compute prediction and loss
@@ -298,7 +298,7 @@ if __name__ == "__main__":
     )
 
     guidance_path = f"data/warped_marigold_frames/frame_{frame_id}.png"
-    guidance_img = 0.5*load_img(guidance_path).to("cuda") + 0.5
+    guidance_img = load_img(guidance_path).to("cuda")
     guidance_mask_path = f"data/warped_marigold_mask_frames/frame_{frame_id}.png"
     guidance_mask = 0.5*load_img(guidance_mask_path).to("cuda") + 0.5
 

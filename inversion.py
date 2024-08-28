@@ -287,23 +287,12 @@ if __name__ == "__main__":
     context_latents = pipe.get_image_latents(context_img, rng_generator=torch.Generator(
         device=pipe.device).manual_seed(0))
 
-
     reversed_context_latents = pipe.forward_diffusion(
         latents=context_latents,
         text_embeddings=text_embeddings,
         guidance_scale=1,
         num_inference_steps=args.num_inference_steps,
     )
-
-    # reconstruction_output_dict = pipe.backward_diffusion(
-    #     latents=reversed_latents,
-    #     text_embeddings=text_embeddings,
-    #     guidance_scale=1,
-    #     num_inference_steps=args.num_inference_steps,
-    #     return_dict=True
-    # )
-    # reconstructed_latents = reconstruction_output_dict['latents']
-    # reconstruction_trajectory = reconstruction_output_dict['trajectory']
 
     guidance_path = f"data/warped_marigold_frames/frame_{frame_id}.png"
     guidance_img = 0.5*load_img(guidance_path).to("cuda") + 0.5
@@ -322,26 +311,8 @@ if __name__ == "__main__":
     )
     edit_recon_latents = edit_recon_output_dict['latents']
     edit_recon_trajectory = edit_recon_output_dict['trajectory']
-
-    # vae_recon = pipe.latents_to_imgs(image_latents)[0]
-    # ddim_recon = pipe.latents_to_imgs(reconstructed_latents)[0]
     edited_img = pipe.latents_to_imgs(edit_recon_latents)[0]
-
-    # vae_recon.save(f"{output_dir}/vae_recon.png")
-    # ddim_recon.save(f"{output_dir}/ddim_recon.png")
     edited_img.save(f"{output_dir}/edited_img.png")
 
-    # test_tweedie = reconstruction_trajectory[25]
-    # guidance_path = "data/lifted_guidance_frame.png"
-    # guidance_img = 0.5*load_img(guidance_path).to("cuda") + 0.5
-    # guidance_mask_path = "data/lifted_guidance_frame_mask.png"
-    # guidance_mask = 0.5*load_img(guidance_mask_path).to("cuda") + 0.5
-
-    # updated_tweedie = pipe.apply_guidance(test_tweedie, guidance_img, guidance_mask)
-    # updated_tweedie_rgb = pipe.decode_image(updated_tweedie.unsqueeze(0))
-    # save_image(0.5*updated_tweedie_rgb+0.5, f"{output_dir}/updated_tweedie_rgb.png")
-
-    # pipe.save_latent_videoframes(reconstruction_trajectory,
-    #     f"{output_dir}/ddim_recon_trajectory.mp4")
-    pipe.save_latent_videoframes(edit_recon_trajectory,
-        f"{output_dir}/edit_recon_trajectory.mp4")
+    # pipe.save_latent_videoframes(edit_recon_trajectory,
+    #     f"{output_dir}/edit_recon_trajectory.mp4")

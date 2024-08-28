@@ -129,8 +129,9 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         reverse_process: True = False,
         return_dict: bool = False,
         guide_tweedies: bool = False,
-        guidance_img: torch.FloatTensor = None,
-        guidance_mask: torch.FloatTensor = None,
+        guidance_frames: torch.FloatTensor = None,
+        guidance_masks: torch.FloatTensor = None,
+        guidance_frame_indices: List[int] = [0],
         **kwargs,
     ):
         """ Generate image from text prompt and latents
@@ -152,76 +153,86 @@ class InversionStableDiffusionPipeline(StableDiffusionPipeline):
         else:
             prompt_to_prompt = False
         
-        trajectory = []
+        latents_dict = {}
+        trajectory_dict = {}
+        for frame_id in guidance_frame_indices:
+            latents_dict[frame_id] = latents.clone()
+            trajectory_dict[frame_id] = []
+
+        del latents
+
         pbar = self.progress_bar(timesteps_tensor if not reverse_process else reversed(timesteps_tensor))
         for i, t in enumerate(pbar):
-            if prompt_to_prompt:
-                if i < use_old_emb_i:
-                    text_embeddings = old_text_embeddings
-                else:
-                    text_embeddings = new_text_embeddings
+            for frame_id in guidance_frame_indices:
+                if prompt_to_prompt:
+                    if i < use_old_emb_i:
+                        text_embeddings = old_text_embeddings
+                    else:
+                        text_embeddings = new_text_embeddings
 
-            # expand the latents if we are doing classifier free guidance
-            latent_model_input = (
-                torch.cat([latents] * 2) if do_classifier_free_guidance else latents
-            )
-            latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-
-            # predict the noise residual
-            noise_pred = self.unet(
-                latent_model_input, t, encoder_hidden_states=text_embeddings
-            ).sample
-
-            # perform guidance
-            if do_classifier_free_guidance:
-                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                noise_pred = noise_pred_uncond + guidance_scale * (
-                    noise_pred_text - noise_pred_uncond
+                # expand the latents if we are doing classifier free guidance
+                latent_model_input = (
+                    torch.cat([latents_dict[frame_id]] * 2) if do_classifier_free_guidance else latents_dict[frame_id]
                 )
+                latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
-            prev_timestep = (
-                t
-                - self.scheduler.config.num_train_timesteps
-                // self.scheduler.num_inference_steps
-            )
-            # call the callback, if provided
-            if callback is not None and i % callback_steps == 0:
-                callback(i, t, latents)
-            
-            # ddim 
-            alpha_prod_t = self.scheduler.alphas_cumprod[t]
-            alpha_prod_t_prev = (
-                self.scheduler.alphas_cumprod[prev_timestep]
-                if prev_timestep >= 0
-                else self.scheduler.final_alpha_cumprod
-            )
-            if reverse_process:
-                alpha_prod_t, alpha_prod_t_prev = alpha_prod_t_prev, alpha_prod_t
-            
-            #estimate tweedie
-            beta_prod_t = 1 - alpha_prod_t
-            pred_original_sample = (latents - beta_prod_t ** (0.5) * noise_pred
-                ) / alpha_prod_t ** (0.5)
+                # predict the noise residual
+                noise_pred = self.unet(
+                    latent_model_input, t, encoder_hidden_states=text_embeddings
+                ).sample
 
-            trajectory.append(pred_original_sample.clone())
+                # perform guidance
+                if do_classifier_free_guidance:
+                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                    noise_pred = noise_pred_uncond + guidance_scale * (
+                        noise_pred_text - noise_pred_uncond
+                    )
 
-            if guide_tweedies:
-                with torch.enable_grad():
-                    updated_tweedie, guidance_loss = self.apply_guidance(pred_original_sample.clone().squeeze(0),
-                          guidance_img, guidance_mask,
-                          num_steps=self.guidance_args.num_guidance_steps)
-                pred_original_sample = updated_tweedie
-                pbar.set_description(f"Guidance Loss {guidance_loss.item():,.4f}")
+                prev_timestep = (
+                    t
+                    - self.scheduler.config.num_train_timesteps
+                    // self.scheduler.num_inference_steps
+                )
+                # call the callback, if provided
+                if callback is not None and i % callback_steps == 0:
+                    callback(i, t, latents)
+                
+                # ddim 
+                alpha_prod_t = self.scheduler.alphas_cumprod[t]
+                alpha_prod_t_prev = (
+                    self.scheduler.alphas_cumprod[prev_timestep]
+                    if prev_timestep >= 0
+                    else self.scheduler.final_alpha_cumprod
+                )
+                if reverse_process:
+                    alpha_prod_t, alpha_prod_t_prev = alpha_prod_t_prev, alpha_prod_t
+                
+                #estimate tweedie
+                beta_prod_t = 1 - alpha_prod_t
+                pred_original_sample = (latents_dict[frame_id] - beta_prod_t ** (0.5) * noise_pred
+                    ) / alpha_prod_t ** (0.5)
 
-            #compute the prev sample from the tweedie
-            pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * noise_pred
-            prev_sample = alpha_prod_t_prev ** (0.5) * pred_original_sample + pred_sample_direction
-            latents = prev_sample
+                trajectory_dict[frame_id].append(pred_original_sample.clone())
+
+                if guide_tweedies:
+                    with torch.enable_grad():
+                        updated_tweedie, guidance_loss = self.apply_guidance(pred_original_sample.clone().squeeze(0),
+                              guidance_frames[frame_id], guidance_masks[frame_id],
+                              num_steps=self.guidance_args.num_guidance_steps)
+                    pred_original_sample = updated_tweedie
+                    pbar.set_description(f"Guidance Loss {guidance_loss.item():,.4f}")
+
+                #compute the prev sample from the tweedie
+                pred_sample_direction = (1 - alpha_prod_t_prev) ** (0.5) * noise_pred
+                prev_sample = alpha_prod_t_prev ** (0.5) * pred_original_sample + pred_sample_direction
+                latents_dict[frame_id] = prev_sample
 
         if return_dict:
-            return {'trajectory': torch.cat(trajectory), 'latents': latents}
+            for k in trajectory_dict.keys():
+                trajectory_dict[k] = torch.cat(trajectory_dict[k])
+            return {'trajectory_dict': trajectory_dict, 'latents_dict': latents_dict}
         else:
-            return latents
+            return latents_dict
     
     @torch.enable_grad()
     def decode_image(self, latents: torch.FloatTensor, **kwargs) -> List["PIL_IMAGE"]:
@@ -295,13 +306,14 @@ if __name__ == "__main__":
         text_embeddings=text_embeddings,
         guidance_scale=1,
         num_inference_steps=args.num_inference_steps,
-    )
+    )[0]
 
     guidance_frame_paths = sorted(glob.glob("data/warped_marigold_frames/*.png"))
     guidance_mask_paths = [p.replace("marigold_frames","marigold_mask_frames")\
             for p in guidance_frame_paths]
     guidance_frames = torch.stack([load_img(gp).to("cuda") for gp in guidance_frame_paths])
     guidance_masks = 0.5*torch.stack([load_img(gp).to("cuda") for gp in guidance_frame_paths]) + 0.5
+    guidance_frame_indices = [args.frame_id]
 
     edit_recon_output_dict = pipe.backward_diffusion(
         latents=reversed_context_latents,
@@ -310,13 +322,16 @@ if __name__ == "__main__":
         num_inference_steps=args.num_inference_steps,
         return_dict=True,
         guide_tweedies=True,
-        guidance_img=guidance_frames[args.frame_id],
-        guidance_mask=guidance_masks[args.frame_id]
+        guidance_frames=guidance_frames,
+        guidance_masks=guidance_masks,
+        guidance_frame_indices = guidance_frame_indices
     )
-    edit_recon_latents = edit_recon_output_dict['latents']
-    edit_recon_trajectory = edit_recon_output_dict['trajectory']
-    edited_img = pipe.latents_to_imgs(edit_recon_latents)[0]
-    edited_img.save(f"{output_dir}/edited_img.png")
 
-    # pipe.save_latent_videoframes(edit_recon_trajectory,
-    #     f"{output_dir}/edit_recon_trajectory.mp4")
+    edit_recon_latents = edit_recon_output_dict['latents_dict']
+    edit_recon_trajectory = edit_recon_output_dict['trajectory_dict']
+
+    for frame_id in guidance_frame_indices:
+        edited_img = pipe.latents_to_imgs(edit_recon_latents[frame_id])[0]
+        edited_img.save(f"{output_dir}/edited_img_frame_{str(frame_id).zfill(2)}.png")
+        pipe.save_latent_videoframes(edit_recon_trajectory[frame_id],
+            f"{output_dir}/edit_recon_trajectory_frame_{str(frame_id).zfill(2)}.mp4")

@@ -6,7 +6,7 @@ img_resolution: 512
 num_inference_steps: 35
 guidance_scale: 8
 seed: 42
-local_files_only: True
+local_files_only: False
 hydra:
   output_subdir: null
   run:
